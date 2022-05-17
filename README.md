@@ -27,52 +27,51 @@ It allows sending live data from the JMeter test result execution to [Tricentis 
 
 1. Open the JMeter project.
 2. Add a BackendListener to the Test plan (right click on the test plan > Add > Listener > Backend Listener)
-<p align="center"><img src="images/add_backend_listener.png" width="40%" alt="Add backend listener" /></p>
+<img src="images/add_backend_listener.png" width="100%" alt="Add backend listener" />
+
 3. Set field "Backend Listener configuration" to "com.tricentis.neoload.NeoLoadBackend.
 4. Edit parameter NeoLoadWeb-API-token.
 5. In case of onPremise deployment of NeoLoadWeb, edit parameter NeoLoadWeb-API-URL.
-<p align="center"><img src="images/configure_backend_listener.png" width="40%" alt="Configure backend listener" /></p>
+<img src="images/configure_backend_listener.png" width="100%" alt="Configure backend listener" />
 
 ## Usage
 
 Once the JMeter test starts, a new test is create in NeoLoadWeb, as seen in the "Running Tests" section of the Home page:
-<p align="center"><img src="images/test_starting.png" width="40%" alt="Test starting" /></p>
-
-test_starting.png
+<img src="images/test_starting.png" width="100%" alt="Test starting" />
 
 ## NeoLoad Web Analysis
 
 ### Test Result Overview
 
 The Overview tab presents all basic details of the JMeter test.
-<p align="center"><img src="images/overview.png" width="40%" alt="Overview" /></p>
+<img src="images/overview.png" width="100%" alt="Overview" />
 
 More information in the [NeoLoad documentation](https://documentation.tricentis.com/neoload/nlweb/en/WebHelp/#27510.htm).
 
 ### Test Result Values
 The Values tab allows sorting elements of a test quickly (Transactions and Requests).
-<p align="center"><img src="images/values.png" width="40%" alt="Values" /></p>
+<img src="images/values.png" width="100%" alt="Values" />
 
 More information in the [NeoLoad documentation](https://documentation.tricentis.com/neoload/nlweb/en/WebHelp/#24271.htm).
 
 ### Test Result Events
 
 The Events tab displays all events occurred during the JMeter test.
-<p align="center"><img src="images/events.png" width="40%" alt="Events" /></p>
+<img src="images/events.png" width="100%" alt="Events" />
 
 More information in the [NeoLoad documentation](https://documentation.tricentis.com/neoload/nlweb/en/WebHelp/#24274.htm).
 
 ### Dashboards
 
 The Dashboards view enables you to visualize in a very flexible layout how values evolve over JMeter test duration.
-<p align="center"><img src="images/dashboards.png" width="40%" alt="Dashboards" /></p>
+<img src="images/dashboards.png" width="100%" alt="Dashboards" />
 
 More information in the [NeoLoad documentation](https://documentation.tricentis.com/neoload/nlweb/en/WebHelp/#23448.htm).
 
 ### Trends
 
 The Trends view makes it possible to visualize and analyze the results of a selected number of tests.
-<p align="center"><img src="images/trends.png" width="40%" alt="Trends" /></p>
+<img src="images/trends.png" width="100%" alt="Trends" />
 
 More information in the [NeoLoad documentation](https://documentation.tricentis.com/neoload/nlweb/en/WebHelp/#26401.htm).
 
