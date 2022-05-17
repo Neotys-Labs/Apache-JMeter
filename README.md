@@ -34,6 +34,8 @@ It allows sending live data from the JMeter test result execution to [Tricentis 
 5. In case of onPremise deployment of NeoLoadWeb, edit parameter NeoLoadWeb-API-URL.
 <img src="images/configure_backend_listener.png" width="100%" alt="Configure backend listener" />
 
+***WARNING: Do not define more than one NeoLoad Backend listener per JMeter project.***
+
 ## Usage
 
 Once the JMeter test starts, a new test is create in NeoLoadWeb, as seen in the "Running Tests" section of the Home page:
@@ -76,6 +78,8 @@ The Trends view makes it possible to visualize and analyze the results of a sele
 More information in the [NeoLoad documentation](https://documentation.tricentis.com/neoload/nlweb/en/WebHelp/#26401.htm).
 
 ## Troubleshooting
+
+In case of issue, check for the JMeter logs. The location may vary depending on deployment, but typically they are located in the file jmeter.log in the bin folder of the JMeter installation directory.
 
 ## ChangeLog
 
