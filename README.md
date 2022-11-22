@@ -30,11 +30,19 @@ It allows sending live data from the JMeter test result execution to [Tricentis 
 <img src="images/add_backend_listener.png" width="100%" alt="Add backend listener" />
 
 3. Set field "Backend Listener configuration" to "com.tricentis.neoload.NeoLoadBackend.
-4. Edit parameter NeoLoadWeb-API-token.
-5. In case of onPremise deployment of NeoLoadWeb, edit parameter NeoLoadWeb-API-URL.
 <img src="images/configure_backend_listener.png" width="100%" alt="Configure backend listener" />
 
 ***WARNING: Do not define more than one NeoLoad Backend listener per JMeter project.***
+
+### Parameters
+
+The backend listener can be configured with the below parameters:
+<img src="images/parameters.png" width="100%" alt="Add backend listener" />
+
+* NeoLoadWeb-API-URL: set the URL of the API endpoint for the NeoLoadWeb on premise deployment. 
+* NeoLoadWeb-API-token: User API token to authenticate to NeoLoadWeb
+* NeoLoadWeb-Workspace-ID: the ID of the workspace to send the results to.
+* NeoLoadWeb-Test-ID: the ID of the test to send the results to.
 
 ## Usage
 
@@ -83,5 +91,7 @@ In case of issue, check for the JMeter logs. The location may vary depending on 
 
 ## ChangeLog
 
+* Version 1.0.6 (Nov 16th 2022): Support of NLWeb test Id
+* Version 1.0.4 (Nov 16th 2022): Support of monitoring
 * Version 1.0.3 (May 25th 2022): Support of NLWeb workspaces
 * Version 1.0.2 (May 17th 2022): Initial release

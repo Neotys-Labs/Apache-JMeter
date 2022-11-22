@@ -93,6 +93,7 @@ public class NlwebRuntime implements Closeable {
 	private final boolean useSsl;
 	private final String path;
 	private final String workspaceId;
+	private final String testId;
 
 	// Main test info
 	private final String benchId;
@@ -123,6 +124,7 @@ public class NlwebRuntime implements Closeable {
 		useSsl = urlStringParameter.startsWith("https://");
 		token = context.getParameter(NeoLoadBackendParameters.NEOLOADWEB_API_TOKEN.getName());
 		workspaceId = context.getParameter(NeoLoadBackendParameters.NEOLOADWEB_WORKSPACE_ID.getName());
+		testId = context.getParameter(NeoLoadBackendParameters.NEOLOADWEB_TEST_ID.getName());
 		path = url.getPath();
 		vertx = Vertx.vertx();
 		client = HttpVertxClient.build(vertx, createClientOptions());
@@ -461,6 +463,9 @@ public class NlwebRuntime implements Closeable {
 				.percentilesOnRawData(Optional.of(true));
 		if(workspaceId != null && !"".equals(workspaceId)){
 			benchDefinitionBuilder.groupId(workspaceId);
+		}
+		if(testId !=null && !"".equals(testId)){
+			benchDefinitionBuilder.testSettingsId(Optional.of(testId));
 		}
 		return benchDefinitionBuilder.build();
 	}
