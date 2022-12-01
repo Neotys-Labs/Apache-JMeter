@@ -91,7 +91,7 @@ In case of issue, check for the JMeter logs. The location may vary depending on 
 
 ## ChangeLog
 
-* Version 1.0.6 (Nov 16th 2022): Support of NLWeb test Id
+* Version 1.0.6 (Nov 30th 2022): Support of NLWeb test Id
 * Version 1.0.4 (Nov 16th 2022): Support of monitoring
 * Version 1.0.3 (May 25th 2022): Support of NLWeb workspaces
 * Version 1.0.2 (May 17th 2022): Initial release
