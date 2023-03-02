@@ -176,6 +176,7 @@ public class NlwebRuntime implements Closeable {
 		aggregator.start(startDate);
 		aggregatorManager.start(startDate);
 		eventsCollector.start(startDate);
+		updateStatisticsAsync();
 		executorService.scheduleAtFixedRate(this::updateStatisticsAsync, 1, 1, TimeUnit.SECONDS);
 		executorService.scheduleAtFixedRate(this::updateStmAndRawAsync, STM_SAMPLING_INTERVAL_IN_MILLISECONDS, STM_SAMPLING_INTERVAL_IN_MILLISECONDS, TimeUnit.MILLISECONDS);
 		executorService.scheduleAtFixedRate(this::updateEventsAsync, 5000, 5000, TimeUnit.MILLISECONDS);
@@ -190,7 +191,6 @@ public class NlwebRuntime implements Closeable {
 
 	@Override
 	public void close() {
-		final long stopTime = System.currentTimeMillis();
 		try {
 			executorService.shutdown();
 			executorService.awaitTermination(30, TimeUnit.SECONDS);
@@ -200,6 +200,7 @@ public class NlwebRuntime implements Closeable {
 		this.updateStatisticsBlocking();
 		this.updateEventsBlocking();
 		this.updateStmAndRawBlocking();
+		final long stopTime = System.currentTimeMillis();
 		System.out.println("Setting Quality status");
 		benchDefinitionApiRestClient.storeBenchPostProcessedData(token, StoreBenchPostProcessedDataRequest.createRequest(benchId, QualityStatus.PASSED))
 				.toBlocking().value();

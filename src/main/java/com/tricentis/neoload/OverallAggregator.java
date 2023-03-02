@@ -4,12 +4,14 @@ import com.google.common.collect.ImmutableMap;
 import com.neotys.nlweb.bench.definition.common.model.BenchStatistics;
 import com.neotys.web.data.ValueNumber;
 import org.apache.jmeter.samplers.SampleResult;
-import org.apache.jmeter.threads.JMeterContextService;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
+
+import static org.apache.jmeter.threads.JMeterContextService.getThreadCounts;
 
 /**
  * @author lcharlois
@@ -68,6 +70,8 @@ final class OverallAggregator {
 	private final AtomicLong lastTransactionCount = new AtomicLong(0);
 	private final AtomicLong lastTransactionDurationSum = new AtomicLong(0);
 	private final AtomicLong lastErrorCount = new AtomicLong(0);
+	private final AtomicReference<VULoad> vuLoad = new AtomicReference<>(new VULoad(0,0,0));
+
 	private long lastStartTime = 0L;
 
 	OverallAggregator() {
@@ -76,6 +80,7 @@ final class OverallAggregator {
 	void start(final long startTime) {
 		this.startTime = startTime;
 		this.lastStartTime = startTime;
+		this.vuLoad.set(new VULoad(0,0,0));
 	}
 
 	void addResults(final List<SampleResult> results) {
@@ -120,13 +125,46 @@ final class OverallAggregator {
 		lastRequestCount.incrementAndGet();
 	}
 
+	class VULoad {
+		int activeVU;
+		int finishedVU;
+		int startedVU;
+
+		public VULoad(int activeVU, int finishedVU, int start) {
+			this.activeVU = activeVU;
+			this.finishedVU = finishedVU;
+			this.startedVU = start;
+		}
+
+		@Override
+		public String toString() {
+			return "a=>"+activeVU+" s=>"+startedVU+" f=>"+finishedVU;
+		}
+
+		public int computeVuLoadFrom(VULoad vuLoad) {
+			return this.activeVU + (this.finishedVU - vuLoad.finishedVU);
+		}
+	}
+	private VULoad vuSnapshot() {
+		return new VULoad(
+				getThreadCounts().activeThreads,
+				getThreadCounts().finishedThreads,
+				getThreadCounts().startedThreads);
+	}
+	private int getVULoadFromLastSnapshotAndReplace() {
+		VULoad newVULoad = vuSnapshot();
+		VULoad lastVULoad = vuLoad.get();
+		vuLoad.set(newVULoad);
+		return newVULoad.computeVuLoadFrom(lastVULoad);
+	}
 	Map<BenchStatistics.Stat, ValueNumber> getStats() {
 		lock.lock();
 		final long now = System.currentTimeMillis();
 		try {
+			final int lastVirtualUserCount = getVULoadFromLastSnapshotAndReplace();
+			System.out.println("VU LOAD => "+vuLoad+" FINAL VALUE => "+lastVirtualUserCount);
 			final long offset = now - startTime;
 			final long relativeOffset = now - lastStartTime;
-			final long lastVirtualUserCount = JMeterContextService.getThreadCounts().activeThreads;
 			return ImmutableMap.<BenchStatistics.Stat, ValueNumber>builder()
 					.put(BenchStatistics.Stat.TIMESTAMP, ValueNumber.of(now))
 					.put(BenchStatistics.Stat.OFFSET, ValueNumber.of(offset))
