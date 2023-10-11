@@ -125,7 +125,7 @@
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-core</artifactId>
-            <version>3.9.10</version>
+            <version>4.2.6</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
