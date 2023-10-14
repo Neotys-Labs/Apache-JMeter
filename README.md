@@ -8,14 +8,14 @@ NeoLoad plugin for Apache JMeter
 This integration is a NeoLoad plugin to be installed in the [Apache JMeter](https://jmeter.apache.org/) environment. 
 It allows sending live data from the JMeter test result execution to [Tricentis NeoLoad](https://www.tricentis.com/products/performance-testing-neoload/).
 
-| Property | Value |
-| ----------------    | ----------------   |
-| Maturity | Experimental |
-| Author | Tricentis |
-| License           | [Apache License Version 2.0](LICENSE) |
-| NeoLoad Web supported versions | SaaS platform, and onPremise from version 3.2 |
-| Apache JMeter tested versions | Version 5.4.3 |
-| Download releases | See the [latest release](https://github.com/Neotys-Labs/Apache-JMeter/releases/latest)|
+| Property | Value                                                                                  |
+| ----------------    |----------------------------------------------------------------------------------------|
+| Maturity | Experimental                                                                           |
+| Author | Tricentis                                                                              |
+| License           | [Apache License Version 2.0](LICENSE)                                                  |
+| NeoLoad Web supported versions | SaaS platform, and onPremise from version 3.2                                          |
+| Apache JMeter tested versions | Version 5.6.2                                                                          |
+| Download releases | See the [latest release](https://github.com/Neotys-Labs/Apache-JMeter/releases/latest) |
 
 ## Installation
 
@@ -91,6 +91,7 @@ In case of issue, check for the JMeter logs. The location may vary depending on 
 
 ## ChangeLog
 
+* Version 1.0.7 (Oct 16th 2023): Update Jmeter core libraries to version 5.6.2
 * Version 1.0.6 (Nov 30th 2022): Support of NLWeb test Id
 * Version 1.0.4 (Nov 16th 2022): Support of monitoring
 * Version 1.0.3 (May 25th 2022): Support of NLWeb workspaces

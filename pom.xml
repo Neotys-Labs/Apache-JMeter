@@ -6,7 +6,7 @@
 
     <groupId>com.tricentis.neoload</groupId>
     <artifactId>jmeter-listener</artifactId>
-    <version>1.0.7-SNAPSHOT</version>
+    <version>1.0.8-SNAPSHOT</version>
     <parent>
         <groupId>com.neotys</groupId>
         <artifactId>super-pom</artifactId>
@@ -20,19 +20,20 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
+        <jmeter.version>5.6.2</jmeter.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>org.apache.jmeter</groupId>
             <artifactId>ApacheJMeter_core</artifactId>
-            <version>5.4.1</version>
+            <version>${jmeter.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.jmeter</groupId>
             <artifactId>ApacheJMeter_components</artifactId>
-            <version>5.4.1</version>
+            <version>${jmeter.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
