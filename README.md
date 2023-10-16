@@ -91,7 +91,13 @@ In case of issue, check for the JMeter logs. The location may vary depending on 
 
 ## ChangeLog
 
-* Version 1.0.7 (Oct 16th 2023): Update Jmeter core libraries to version 5.6.2
+* Version 1.0.8 (Oct 16th 2023): Update lib dependencies: 
+  * org.slf4j:slf4j-log4j12 to 1.7.36
+  * org.slf4j:slf4j-api to 1.7.36
+  * io.reactivex:rxjava to 1.3.8
+  * org.apache.maven:maven-model to 3.9.4
+  * io.vertx:vertx-core to 4.2.6
+* Version 1.0.7 (Oct 13th 2023): Update Jmeter core libraries to version 5.6.2
 * Version 1.0.6 (Nov 30th 2022): Support of NLWeb test Id
 * Version 1.0.4 (Nov 16th 2022): Support of monitoring
 * Version 1.0.3 (May 25th 2022): Support of NLWeb workspaces
