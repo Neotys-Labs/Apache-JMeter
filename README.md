@@ -14,7 +14,7 @@ It allows sending live data from the JMeter test result execution to [Tricentis 
 | Author | Tricentis                                                                              |
 | License           | [Apache License Version 2.0](LICENSE)                                                  |
 | NeoLoad Web supported versions | SaaS platform, and onPremise from version 3.2                                          |
-| Apache JMeter tested versions | Version 5.6.2                                                                          |
+| Apache JMeter tested versions | Version 5.1, 5.2, 5.3, 5.4, 5.5, 5.6.2                                                 |
 | Download releases | See the [latest release](https://github.com/Neotys-Labs/Apache-JMeter/releases/latest) |
 
 ## Installation
