@@ -42,9 +42,12 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
+import org.apache.commons.lang3.tuple.Triple;
 import org.apache.jmeter.samplers.SampleResult;
 import org.apache.jmeter.services.FileServer;
 import org.apache.jmeter.threads.JMeterContextService;
+import org.apache.jmeter.util.JMeterUtils;
 import org.apache.jmeter.visualizers.backend.BackendListenerContext;
 import rx.Completable;
 import rx.Single;
@@ -71,9 +74,11 @@ import static java.util.stream.Collectors.toMap;
  * @since 03/12/2021.
  */
 public class NlwebRuntime implements Closeable {
-	public static final int STM_SAMPLING_INTERVAL_IN_MILLISECONDS = 1000;
-	public static final int MONITORS_SAMPLING_INTERVAL_IN_MILLISECONDS = 5000;
-	public static final String DEFAULT_ZONE_OR_POPULATION = "default";
+	private static final int STM_SAMPLING_INTERVAL_IN_MILLISECONDS = 1000;
+	private static final int MONITORS_SAMPLING_INTERVAL_IN_MILLISECONDS = 5000;
+	private static final String DEFAULT_ZONE_OR_POPULATION = "default";
+	private static final String POM_PATH = "/META-INF/maven/com.tricentis.neoload/jmeter-listener/pom.xml";
+	private static final Triple<Integer, Integer, Integer> VERSION_1_0_0 = ImmutableTriple.of(1, 0, 0);
 	private static final AtomicLong EMITTER_ID = new AtomicLong();
 
 	// Rest clients
@@ -425,29 +430,43 @@ public class NlwebRuntime implements Closeable {
 		}
 	}
 
-	private static ProductVersion getPluginVersion(){
+	private static ProductVersion getVersion(){
+		final Triple<Integer, Integer, Integer> pluginVersionDigits = getPluginVersionDigits();
+		final String jMeterVersion = getJMeterVersion();
+		return ProductVersion.of(
+				pluginVersionDigits.getLeft(),
+				pluginVersionDigits.getMiddle(),
+				pluginVersionDigits.getRight(),
+				jMeterVersion);
+	}
+
+	private static Triple<Integer, Integer, Integer> getPluginVersionDigits(){
 		try {
 			final MavenXpp3Reader reader = new MavenXpp3Reader();
-			final Model model = reader.read(new InputStreamReader(NlwebRuntime.class.getResourceAsStream("/META-INF/maven/com.tricentis.neoload/jmeter-listener/pom.xml")));
+			final Model model = reader.read(new InputStreamReader(NlwebRuntime.class.getResourceAsStream(POM_PATH)));
 			final String versionDigits[] = model.getVersion().split("\\-")[0].split("\\.");
-			return ProductVersion.of(Integer.parseInt(versionDigits[0]), Integer.parseInt(versionDigits[1]), Integer.parseInt(versionDigits[2]), "jmeter");
+			return ImmutableTriple.of(Integer.parseInt(versionDigits[0]), Integer.parseInt(versionDigits[1]), Integer.parseInt(versionDigits[2]));
 		} catch(final Exception e){
 			System.out.println("Error while retrieving plugin version");
 			e.printStackTrace();
-			return ProductVersion.of(1, 0, 0, "jmeter");
+			return VERSION_1_0_0;
 		}
+	}
+
+	private static String getJMeterVersion(){
+		return "jmeter-" + JMeterUtils.getJMeterVersion();
 	}
 
 	private BenchDefinition createBenchDefinition() {
 		final DataSource dataSource = buildDataSource(scriptName);
 		final String scriptUuid = scriptName;
-		final ProductVersion pluginVersion = getPluginVersion();
+		final ProductVersion pluginVersion = getVersion();
 		final BenchDefinitionBuilder benchDefinitionBuilder = BenchDefinitionBuilder.builder()
 				.vuhOrDaily(false)
 				.aggregationSTMAggPointsInterval(STM_SAMPLING_INTERVAL_IN_MILLISECONDS)
 				.benchStatisticsSamplingInterval(1)
 				.debug(false)
-				.description("Test executed by Apache JMeter with NeoLoad plugin version " + pluginVersion.getMajor() + "." + pluginVersion.getMinor() + "." + pluginVersion.getFix() + ".")
+				.description("Test executed by Apache " + pluginVersion.getBuild() + " with NeoLoad plugin version " + pluginVersion.getMajor() + "." + pluginVersion.getMinor() + "." + pluginVersion.getFix() + ".")
 				.duration(0)
 				.status(BenchStatus.STARTING)
 				.estimateMaxVuCount(0)
