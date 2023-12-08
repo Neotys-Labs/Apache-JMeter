@@ -46,10 +46,69 @@ The backend listener can be configured with the below parameters:
 
 ## Usage
 
-Once the JMeter test starts, a new test is create in NeoLoadWeb, as seen in the "Running Tests" section of the Home page:
-<img src="images/test_starting.png" width="100%" alt="Test starting" />
+The JMeter can be started from JMeter, or from NeoLoadGUI, or from NeoLoad Web.
+
+### Starting test from JMeter
+
+Once the backend listener is properly configured, the JMeter can be start manually from the JMeter UI: 
+
+<img src="images/start_from_JMeter.png" width="100%" alt="Start from JMeter" />
+
+or started in command line, specifying the JMeter launcher and the project path: 
+```
+"C:\Program Files\apache-jmeter-5.6.2\bin\jmeter.bat" -n -t "C:\JMeterTest.jmx"
+```
+<img src="images/start_from_command_line.png" width="100%" alt="Start from command line" />
+
+or started from any CI/CD pipeline.
+
+### Starting test from NeoLoad GUI
+
+The JMeter test execution can also be triggered from a NeoLoad test, thanks to the command line action.
+Both JMeter and NeoLoad need to be installed on the same host.
+Within the NeoLoad project, the JMeter test needed to be started only once, so it needs to be designed with a single user path containing 
+and one command line action in the Actions container, and the scenario configured for a one virtual user and one iteration: 
+
+* Have JMeter and NeoLoad installed on the same host
+* Create new NeoLoad project
+* Add a user path and a population with that user path
+* Add a command line action in the Actions container of the user path. The action parameters need to be configured as below: 
+  * ``command``: the absolute path of the JMeter launcher, example ``C:\"Program Files"\apache-jmeter-5.6.2\bin\jmeter.bat``
+  * ``arg1``: ``-n`` to specify the JMeter to run the test in a non-GUI (CLI) mode
+  * ``arg2``: ``-t`` to specify the path to the JMeter test file
+  * ``arg3``: the absolute path of the JMeter test file, for example ``C:\JMeterTest.jmx``
+* Configure the scenario for 1 iteration, with constant load of 1 virtual user, using localhost load generator
+* Save the project, and launch this scenario
+
+<img src="images/starting_from_neoloadgui.png" width="100%" alt="Start from NeoLoad GUI" />
+
+### Starting test from NeoLoad Web
+
+Following the procedure on launching the test from NeoLoad GUI, it is also possible to launch the test from NeoLoad Web.
+
+* Open the NeoLoad project on NeoLoad GUI and configure the connectivity to NeoLoad Web according to the [NeoLoad documentation](https://documentation.tricentis.com/neoload/latest/en/content/reference_guide/neoload_web.htm).
+* Export the NeoLoad project to NeoLoad Web
+  * click on Menu 'File', then option 'Export project to NeoLoad Web...'
+  * Select the workspace, enter a test name, check option 'Open the Test in browser after project upload'
+  * Click 'Next', then 'Finish'
+* Close NeoLoad
+* Go to the NeoLoad Web on the browser, and open the newly uploaded test
+* Copy the testId, as seen in the URL ``https://neoload.saas.neotys.com/#!test-settings/<testId>/overview``
+* Open the JMeter, and edit the backend listener of the JMeter project to launch
+* Add or edit value of parameter ``NeoLoadWeb-Test-ID`` with the testId copied on previous step
+* Save JMeter project and close JMeter
+* Start ControllerAgent and LoadGeneratorAgent on the same host as JMeter
+* Configure ControllerAgent and LoadGeneratorAgent connectivity to NeoLoad Web, and verify they appear in the NeoLoad Web resource zone.
+* On NeoLoad Web browser, open the Test previously uploaded and go to the configuration tab
+* Select the static zone that contain the ControllerAgent and LoadGeneratorAgent started locally
+* Start the test
+
+***WARNING: Two concurents test execution will be seen on NeoLoad Web for that test: one is the launcher NeoLoad and the other one is the actual JMeter test execution.***
 
 ## NeoLoad Web Analysis
+
+Once the JMeter test starts, a new test is create in NeoLoadWeb, as seen in the "Running Tests" section of the Home page:
+<img src="images/test_starting.png" width="100%" alt="Test starting" />
 
 ### Test Result Overview
 
