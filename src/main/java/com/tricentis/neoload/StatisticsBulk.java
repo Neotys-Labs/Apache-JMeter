@@ -7,19 +7,19 @@ import java.util.List;
  * @since 09/12/2021.
  */
 class StatisticsBulk {
-	private final List<BenchElement> newElements;
-	private final List<ElementResults> values;
+    private final List<BenchElement> newElements;
+    private final List<ElementResults> values;
 
-	StatisticsBulk(final List<BenchElement> newElements, final List<ElementResults> values) {
-		this.newElements = newElements;
-		this.values = values;
-	}
+    StatisticsBulk(final List<BenchElement> newElements, final List<ElementResults> values) {
+        this.newElements = newElements;
+        this.values = values;
+    }
 
-	List<BenchElement> getNewElements() {
-		return newElements;
-	}
+    List<BenchElement> getNewElements() {
+        return newElements;
+    }
 
-	List<ElementResults> getValues() {
-		return values;
-	}
+    List<ElementResults> getValues() {
+        return values;
+    }
 }
