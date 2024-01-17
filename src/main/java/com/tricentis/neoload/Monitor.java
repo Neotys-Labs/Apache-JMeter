@@ -9,6 +9,8 @@ import com.neotys.nlweb.bench.definition.storage.model.element.ElementBuilder;
 import com.neotys.nlweb.bench.result.im.data.point.ImCounterPoint;
 import com.neotys.web.data.ValueNumber;
 import org.apache.jmeter.threads.JMeterContextService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.management.Attribute;
 import javax.management.AttributeList;
@@ -57,12 +59,13 @@ public enum Monitor {
                 final Attribute attribute = (Attribute) list.get(0);
                 return Optional.of(ValueNumber.of((Double) attribute.getValue() * 100));
             } catch (final Exception e) {
-                System.out.println("Error while computing CPU Load");
-                e.printStackTrace();
+                LOGGER.error("Error while computing CPU Load", e);
                 return Optional.empty();
             }
         }
     };
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(Monitor.class);
 
     private final String displayName;
     private final String counterId;

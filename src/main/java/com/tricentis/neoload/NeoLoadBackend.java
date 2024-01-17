@@ -5,8 +5,9 @@ import org.apache.jmeter.control.TransactionController;
 import org.apache.jmeter.samplers.SampleResult;
 import org.apache.jmeter.visualizers.backend.AbstractBackendListenerClient;
 import org.apache.jmeter.visualizers.backend.BackendListenerContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.net.MalformedURLException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -23,7 +24,8 @@ import static com.google.common.base.Predicates.not;
  */
 public class NeoLoadBackend extends AbstractBackendListenerClient {
 
-    private NlwebRuntime nlwebRuntime;
+    private static final Logger LOGGER = LoggerFactory.getLogger(NeoLoadBackend.class);
+    private NLWebRuntime nlwebRuntime;
     private int totalCount = 0;
     private long totalOk = 0;
     private long totalKo = 0;
@@ -31,31 +33,24 @@ public class NeoLoadBackend extends AbstractBackendListenerClient {
 
     @Override
     public void setupTest(final BackendListenerContext context) throws Exception {
-        try {
-            neoloadSetup(context);
-        } catch (final Exception e) {
-            e.printStackTrace();
-            throw e;
-        }
+        neoloadSetup(context);
         super.setupTest(context);
     }
 
-    private void neoloadSetup(final BackendListenerContext context) throws MalformedURLException {
-        nlwebRuntime = new NlwebRuntime(context);
+    private void neoloadSetup(final BackendListenerContext context) throws Exception {
+        nlwebRuntime = new NLWebRuntime(context);
         nlwebRuntime.start();
-        totalCount = 0;
-        totalOk = 0;
-        totalKo = 0;
         executor.scheduleAtFixedRate(this::logCounters, 0, 1, TimeUnit.SECONDS);
     }
 
     private void logCounters() {
-        System.out.println("Received requests from JMeter => " + totalCount + " Ok " + totalOk + " Ko " + totalKo);
+        if (LOGGER.isDebugEnabled())
+            LOGGER.debug(String.format("Received requests from JMeter => %d Ok %d Ko %d", totalCount, totalOk, totalKo));
     }
 
     @Override
     public void handleSampleResults(final List<SampleResult> list, final BackendListenerContext backendListenerContext) {
-        List<SampleResult> effectiveList = expandList(list);
+        final List<SampleResult> effectiveList = expandList(list);
         calcCounts(effectiveList);
         nlwebRuntime.addSamples(effectiveList);
     }

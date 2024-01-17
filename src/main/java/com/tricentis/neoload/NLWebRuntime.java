@@ -48,6 +48,8 @@ import org.apache.jmeter.util.JMeterUtils;
 import org.apache.jmeter.visualizers.backend.BackendListenerContext;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rx.Completable;
 import rx.Single;
 
@@ -73,7 +75,9 @@ import static java.util.stream.Collectors.toMap;
  * @author lcharlois
  * @since 03/12/2021.
  */
-public class NlwebRuntime implements Closeable {
+public class NLWebRuntime implements Closeable {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(NLWebRuntime.class);
     private static final int STM_SAMPLING_INTERVAL_IN_MILLISECONDS = 1000;
     private static final int MONITORS_SAMPLING_INTERVAL_IN_MILLISECONDS = 5000;
     private static final String DEFAULT_ZONE_OR_POPULATION = "default";
@@ -104,24 +108,23 @@ public class NlwebRuntime implements Closeable {
     private final String benchId;
     private Element rootElement;
     private Element monitorsRootElement;
-    private String scriptName;
-    private long startDate;
+    private final String scriptName;
+    private final long startDate;
 
     // Aggregators / Collectors
     private final OverallAggregator aggregator;
     private final ResultsAggregatorManager aggregatorManager;
     private final EventsCollector eventsCollector;
 
-    private Set<String> requestsElements;
+    private final Set<String> requestsElements = new HashSet<>();
 
-    // Scheduler
     private final ScheduledExecutorService executorService;
     private AtomicInteger totalCount = new AtomicInteger(0);
     private AtomicInteger totalOkCount = new AtomicInteger(0);
     private AtomicInteger totalKoCount = new AtomicInteger(0);
 
 
-    NlwebRuntime(final BackendListenerContext context) throws MalformedURLException {
+    NLWebRuntime(final BackendListenerContext context) throws MalformedURLException {
         final String urlStringParameter = context.getParameter(NeoLoadBackendParameters.NEOLOADWEB_API_URL.getName());
         final URL url = new URL(urlStringParameter);
         host = url.getHost();
@@ -144,53 +147,62 @@ public class NlwebRuntime implements Closeable {
         aggregatorManager = new ResultsAggregatorManager(STM_SAMPLING_INTERVAL_IN_MILLISECONDS);
         executorService = Executors.newScheduledThreadPool(3, new BasicThreadFactory.Builder().namingPattern("jmeter-nlw").build());
         eventsCollector = new EventsCollector();
+        scriptName = FileServer.getFileServer().getScriptName();
+        startDate = System.currentTimeMillis();
+        aggregator.start(startDate);
+        aggregatorManager.start(startDate);
+        eventsCollector.start(startDate);
     }
 
+
     public void start() {
-        final FileServer fileServer = FileServer.getFileServer();
-        scriptName = fileServer.getScriptName();
+        createBench();
+        storeIMMapping();
+        storeBenchStartedData();
+        scheduleExecutorServices();
+    }
+
+    private void createBench() {
+        LOGGER.debug("Create bench");
         final BenchDefinition benchDefinition = createBenchDefinition();
-        System.out.println("Start test");
         final Throwable benchDefinitionError = benchDefinitionApiRestClient.createBench(token, CreateBenchRequest.createRequest(benchDefinition))
                 .retry(1)
                 .toCompletable()
                 .get();
         if (benchDefinitionError != null) {
-            System.out.println("Error while sending bench definition: " + benchDefinitionError.getMessage());
-            benchDefinitionError.printStackTrace();
-            return;
+            LOGGER.error("Error while sending bench definition", benchDefinitionError);
+            throw new RuntimeException(benchDefinitionError);
         }
+    }
 
-        // Send IM mapping
+    private void storeIMMapping() {
+        LOGGER.debug("Store IM mapping");
         final Throwable storeMappingError = benchResultImApiRestClient.storeMapping(token, StoreMappingRequest.of(benchId, Monitor.getCountersByGroupId(monitorsRootElement.getId())))
                 .retry(1)
                 .toCompletable()
                 .get();
         if (storeMappingError != null) {
-            System.out.println("Error while sending IM Mapping: " + storeMappingError.getMessage());
-            storeMappingError.printStackTrace();
-            return;
+            LOGGER.error("Error while sending IM Mapping", storeMappingError);
+            throw new RuntimeException(storeMappingError);
         }
+    }
 
+    private void storeBenchStartedData() {
+        LOGGER.debug("Store bench started data");
         long preStartDate = JMeterContextService.getTestStartTime();
-        startDate = System.currentTimeMillis();
-        System.out.println("Start data");
-        benchDefinitionApiRestClient.storeBenchStartedData(token, StoreBenchStartedDataRequest.createRequest(benchId, preStartDate, startDate, empty()))
-                .doOnSuccess(result -> System.out.println("Start data done..."))
-                .doOnError(Throwable::printStackTrace).toBlocking().value();
-        aggregator.start(startDate);
-        aggregatorManager.start(startDate);
-        eventsCollector.start(startDate);
+        final Throwable storeBenchStartedDataError = benchDefinitionApiRestClient.storeBenchStartedData(token, StoreBenchStartedDataRequest.createRequest(benchId, preStartDate, startDate, empty()))
+                .doOnSuccess(result -> LOGGER.debug("Start data done...")).toCompletable().get();
+        if (storeBenchStartedDataError != null) {
+            LOGGER.error("Error while storing Bench Started Data", storeBenchStartedDataError);
+            throw new RuntimeException(storeBenchStartedDataError);
+        }
+    }
+
+    private void scheduleExecutorServices() {
         executorService.scheduleAtFixedRate(this::updateStatisticsAsync, 1, 1, TimeUnit.SECONDS);
         executorService.scheduleAtFixedRate(this::updateStmAndRawAsync, STM_SAMPLING_INTERVAL_IN_MILLISECONDS, STM_SAMPLING_INTERVAL_IN_MILLISECONDS, TimeUnit.MILLISECONDS);
         executorService.scheduleAtFixedRate(this::updateEventsAsync, 5000, 5000, TimeUnit.MILLISECONDS);
         executorService.scheduleAtFixedRate(this::sendMonitorsAsync, MONITORS_SAMPLING_INTERVAL_IN_MILLISECONDS, MONITORS_SAMPLING_INTERVAL_IN_MILLISECONDS, TimeUnit.MILLISECONDS);
-
-        totalCount = new AtomicInteger(0);
-        totalOkCount = new AtomicInteger(0);
-        totalKoCount = new AtomicInteger(0);
-
-        requestsElements = new HashSet<>();
     }
 
     @Override
@@ -200,19 +212,19 @@ public class NlwebRuntime implements Closeable {
             executorService.shutdown();
             executorService.awaitTermination(30, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            LOGGER.error("Error while closing NLWebRuntime", e);
         }
         this.updateStatisticsBlocking();
         this.updateEventsBlocking();
         this.updateStmAndRawBlocking();
-        System.out.println("Setting Quality status");
+        LOGGER.debug("Setting Quality status");
         benchDefinitionApiRestClient.storeBenchPostProcessedData(token, StoreBenchPostProcessedDataRequest.createRequest(benchId, QualityStatus.PASSED))
                 .toBlocking().value();
-        System.out.println("End test");
+        LOGGER.debug("End test");
         benchDefinitionApiRestClient.storeBenchEndedData(token, StoreBenchEndedDataRequest.createRequest(benchId, stopTime, TerminationReason.POLICY)).toBlocking().value();
-        System.out.println("Close client");
+        LOGGER.debug("Close client");
         client.close();
-        System.out.println("Close vertx");
+        LOGGER.debug("Close vertx");
         vertx.close();
     }
 
@@ -244,57 +256,53 @@ public class NlwebRuntime implements Closeable {
     }
 
     private Completable updateStmAndRaw() {
-        try {
-
-            final StatisticsBulk bulk = aggregatorManager.collect();
-            final List<BenchElement> newElements = bulk.getNewElements();
-            final List<STMAggPoint> points = bulk.getValues()
-                    .stream()
-                    .map(this::toStmPoint)
-                    .collect(toList());
-
-            requestsElements.addAll(newElements.stream().filter(e -> e.getKind() == BenchElement.Kind.REQUEST).map(BenchElement::getUuid).collect(Collectors.toSet()));
-
-            totalCount.addAndGet(points.stream().filter(x -> requestsElements.contains(x.getId()) && x.getSuccessAndFailure().isPresent())
-                    .collect(Collectors.summingInt(p -> p.getSuccessAndFailure().get().getCount())));
-            totalOkCount.addAndGet(points.stream().filter(x -> requestsElements.contains(x.getId()) && x.getSuccess().isPresent())
-                    .collect(Collectors.summingInt(p -> p.getSuccess().get().getCount())));
-            totalKoCount.addAndGet(points.stream().filter(x -> requestsElements.contains(x.getId()) && x.getFailure().isPresent())
-                    .collect(Collectors.summingInt(p -> p.getFailure().get().getCount())));
 
 
-            final StorePointsRequest storePointsRequest = StorePointsRequest.createRequest(benchId, points);
-            //TODO which nbRetryBatch ??
-            final Completable sendStmPoints = points.isEmpty() ? Completable.complete() : stmApiRestClient.storePoints(token, storePointsRequest, 1);
+        final StatisticsBulk bulk = aggregatorManager.collect();
+        final List<BenchElement> newElements = bulk.getNewElements();
+        final List<STMAggPoint> points = bulk.getValues()
+                .stream()
+                .map(this::toStmPoint)
+                .collect(toList());
 
-            final List<RawPoint> rawPoints = bulk.getValues().stream().flatMap(ElementResults::stream).map(this::toRawPoint).collect(toList());
-            final StoreRawPointsRequest storeRawPointsRequest = ImmutableStoreRawPointsRequest.builder()
-                    .benchId(benchId)
-                    .bucketId(UUID.randomUUID().toString())
-                    .addAllPoints(rawPoints)
-                    .build();
-            final Completable storeRawPointsCompletable = rawPoints.isEmpty() ? Completable.complete() : rawApiRestClient.storeRawPoints(token, storeRawPointsRequest).toCompletable();
+        requestsElements.addAll(newElements.stream().filter(e -> e.getKind() == BenchElement.Kind.REQUEST).map(BenchElement::getUuid).collect(Collectors.toSet()));
 
-            Completable completableStoreMappingAndRawData;
-            if (!newElements.isEmpty()) {
-                final ImmutableDefineNewElementsRequest defineNewElementsRequest = buildNewElementsRequest(newElements);
-                final StoreRawMappingRequest storeRawMappingRequest = buildStoreRawMappingRequest(newElements);
-                completableStoreMappingAndRawData = Completable.merge(
-                        benchDefinitionGatewayApiRestClient.defineNewElements(token, defineNewElementsRequest).toCompletable(),
-                        rawApiRestClient.storeRawMapping(token, storeRawMappingRequest).toCompletable()
-                ).andThen(Completable.merge(sendStmPoints, storeRawPointsCompletable));
-            } else {
-                completableStoreMappingAndRawData = Completable.merge(sendStmPoints, storeRawPointsCompletable);
-            }
-            return logCompletable(completableStoreMappingAndRawData, "storeMappingAndRawData done...");
-        } catch (final Exception e) {
-            e.printStackTrace();
-            throw e;
+        totalCount.addAndGet(points.stream().filter(x -> requestsElements.contains(x.getId()) && x.getSuccessAndFailure().isPresent())
+                .collect(Collectors.summingInt(p -> p.getSuccessAndFailure().get().getCount())));
+        totalOkCount.addAndGet(points.stream().filter(x -> requestsElements.contains(x.getId()) && x.getSuccess().isPresent())
+                .collect(Collectors.summingInt(p -> p.getSuccess().get().getCount())));
+        totalKoCount.addAndGet(points.stream().filter(x -> requestsElements.contains(x.getId()) && x.getFailure().isPresent())
+                .collect(Collectors.summingInt(p -> p.getFailure().get().getCount())));
+
+
+        final StorePointsRequest storePointsRequest = StorePointsRequest.createRequest(benchId, points);
+
+        final Completable sendStmPoints = points.isEmpty() ? Completable.complete() : stmApiRestClient.storePoints(token, storePointsRequest, 1);
+
+        final List<RawPoint> rawPoints = bulk.getValues().stream().flatMap(ElementResults::stream).map(this::toRawPoint).collect(toList());
+        final StoreRawPointsRequest storeRawPointsRequest = ImmutableStoreRawPointsRequest.builder()
+                .benchId(benchId)
+                .bucketId(UUID.randomUUID().toString())
+                .addAllPoints(rawPoints)
+                .build();
+        final Completable storeRawPointsCompletable = rawPoints.isEmpty() ? Completable.complete() : rawApiRestClient.storeRawPoints(token, storeRawPointsRequest).toCompletable();
+
+        Completable completableStoreMappingAndRawData;
+        if (!newElements.isEmpty()) {
+            final ImmutableDefineNewElementsRequest defineNewElementsRequest = buildNewElementsRequest(newElements);
+            final StoreRawMappingRequest storeRawMappingRequest = buildStoreRawMappingRequest(newElements);
+            completableStoreMappingAndRawData = Completable.merge(
+                    benchDefinitionGatewayApiRestClient.defineNewElements(token, defineNewElementsRequest).toCompletable(),
+                    rawApiRestClient.storeRawMapping(token, storeRawMappingRequest).toCompletable()
+            ).andThen(Completable.merge(sendStmPoints, storeRawPointsCompletable));
+        } else {
+            completableStoreMappingAndRawData = Completable.merge(sendStmPoints, storeRawPointsCompletable);
         }
+        return logCompletable(completableStoreMappingAndRawData, "storeMappingAndRawData done...");
     }
 
     private Completable logCompletable(Completable completable, String msgOnSuccess) {
-        return completable.doOnCompleted(() -> System.out.println(msgOnSuccess)).doOnError(Throwable::printStackTrace);
+        return completable.doOnCompleted(() -> LOGGER.debug(msgOnSuccess)).doOnError(e -> LOGGER.error("Error on method logCompletable", e));
     }
 
 
@@ -411,23 +419,14 @@ public class NlwebRuntime implements Closeable {
 
 
     private <T> Single<T> logSingle(Single<T> single, String msgOnSuccess) {
-        return single.doOnSuccess(resp -> System.out.println(msgOnSuccess)).doOnError(Throwable::printStackTrace);
+        return single.doOnSuccess(resp -> LOGGER.debug(msgOnSuccess)).doOnError(e -> LOGGER.error("Error on method logSingle", e));
     }
 
 
     private Single<AddBenchStatisticsResult> updateStatistics() {
-        //TODO missing stats
-        //				TOTAL_ITERATION_COUNT_SUCCESS("tics"),
-        //				TOTAL_ITERATION_COUNT_FAILURE("ticf"),
-        //				TOTAL_GLOBAL_COUNT_FAILURE("tgcf"),
-        try {
-            final Map<BenchStatistics.Stat, ValueNumber> stats = aggregator.getStats();
-            final BenchStatistics benchStatistics = BenchStatistics.of(stats);
-            return logSingle(benchDefinitionApiRestClient.addBenchStatistics(token, AddBenchStatisticsRequest.createRequest(benchId, benchStatistics)), "updateStatistics done...");
-        } catch (final Exception e) {
-            e.printStackTrace();
-            throw e;
-        }
+        final Map<BenchStatistics.Stat, ValueNumber> stats = aggregator.getStats();
+        final BenchStatistics benchStatistics = BenchStatistics.of(stats);
+        return logSingle(benchDefinitionApiRestClient.addBenchStatistics(token, AddBenchStatisticsRequest.createRequest(benchId, benchStatistics)), "updateStatistics done...");
     }
 
     private static ProductVersion getVersion() {
@@ -443,12 +442,11 @@ public class NlwebRuntime implements Closeable {
     private static Triple<Integer, Integer, Integer> getPluginVersionDigits() {
         try {
             final MavenXpp3Reader reader = new MavenXpp3Reader();
-            final Model model = reader.read(new InputStreamReader(NlwebRuntime.class.getResourceAsStream(POM_PATH)));
-            final String versionDigits[] = model.getVersion().split("\\-")[0].split("\\.");
+            final Model model = reader.read(new InputStreamReader(NLWebRuntime.class.getResourceAsStream(POM_PATH)));
+            final String[] versionDigits = model.getVersion().split("\\-")[0].split("\\.");
             return ImmutableTriple.of(Integer.parseInt(versionDigits[0]), Integer.parseInt(versionDigits[1]), Integer.parseInt(versionDigits[2]));
         } catch (final Exception e) {
-            System.out.println("Error while retrieving plugin version");
-            e.printStackTrace();
+            LOGGER.error("Error while retrieving plugin version", e);
             return VERSION_1_0_0;
         }
     }
@@ -504,15 +502,14 @@ public class NlwebRuntime implements Closeable {
                 .familyId(FamilyName.USER_PATH.name())
                 .build();
 
-        //FIXME How to build that correctly ????
         final List<GroupFilter> filters = ImmutableList.of(GroupFilter.requestsGroupFilter(emptyList()), GroupFilter.transactionsGroupFilter(emptyList()));
 
         final DataSourceEntry dataSourceEntry = DataSourceEntry.withRootContextId(scriptName, rootElement, filters);
         final List<DataSourceEntry> dataSourceEntries = ImmutableList.of(dataSourceEntry);
 
-        //FIXME
+
         final List<Family> families = ImmutableList.of(Families.DEFAULT_USER_PATH, Families.DEFAULT_TRANSACTION, Families.DEFAULT_REQUEST);
-        final List<Statistic> statistics = getStatistics(families);//TODO add specific IDs if needed.
+        final List<Statistic> statistics = getStatistics(families);
         return DataSource.of(DataSourceId.USER_PATHS.toString(), dataSourceEntries, filters, statistics, contextRoots, families);
     }
 
@@ -544,7 +541,7 @@ public class NlwebRuntime implements Closeable {
         clientOptions.setUseSSL(useSsl);
         if (useSsl) clientOptions.setTrustAll(true);
         clientOptions.setHost(host);
-        final int defaultedPort = this.port > 0 ? this.port : useSsl ? 443 : 80;
+        final int defaultedPort = this.port > 0 ? this.port : getDefaultPort();
         clientOptions.setPort(defaultedPort);
         clientOptions.setIdleTimeout(60000);
         clientOptions.setConnectTimeout(20000);
@@ -552,6 +549,10 @@ public class NlwebRuntime implements Closeable {
         clientOptions.setBaseURL(defaultedPath);
         clientOptions.setProductTag("JMETER");
         return clientOptions;
+    }
+
+    private int getDefaultPort() {
+        return useSsl ? 443 : 80;
     }
 
     private void sendMonitorsAsync() {
