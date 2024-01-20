@@ -68,7 +68,7 @@ public class NeoLoadBackend extends AbstractBackendListenerClient {
     }
 
     private void calcCounts(List<SampleResult> sampleList) {
-        List<SampleResult> requests = sampleList.stream()
+        final List<SampleResult> requests = sampleList.stream()
                 .filter(not(TransactionController::isFromTransactionController)).collect(Collectors.toList());
         totalCount += requests.size();
         totalOk += requests.stream().filter(SampleResult::isSuccessful).count();
@@ -88,8 +88,6 @@ public class NeoLoadBackend extends AbstractBackendListenerClient {
 
     @Override
     public Arguments getDefaultParameters() {
-        final Arguments arguments = new Arguments();
-        Stream.of(NeoLoadBackendParameters.values()).forEach(p -> arguments.addArgument(p.getName(), p.getDefaultValue()));
-        return arguments;
+        return new Arguments();
     }
 }

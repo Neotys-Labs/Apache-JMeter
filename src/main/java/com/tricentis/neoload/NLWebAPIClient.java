@@ -1,23 +1,18 @@
 package com.tricentis.neoload;
 
-import com.neotys.nlweb.apis.gateway.benchdefinition.api.definition.request.ImmutableDefineNewElementsRequest;
+import com.neotys.nlweb.apis.gateway.benchdefinition.api.definition.request.DefineNewElementsRequest;
 import com.neotys.nlweb.apis.gateway.benchdefinition.rest.client.BenchDefinitionGatewayApiRestClient;
 import com.neotys.nlweb.bench.definition.common.QualityStatus;
 import com.neotys.nlweb.bench.definition.common.TerminationReason;
 import com.neotys.nlweb.bench.definition.common.model.BenchStatistics;
 import com.neotys.nlweb.bench.definition.storage.model.BenchDefinition;
 import com.neotys.nlweb.bench.definition.storage.model.element.Element;
-import com.neotys.nlweb.bench.definition.storage.model.element.ElementBuilder;
 import com.neotys.nlweb.bench.event.api.definition.request.StoreBenchEventsRequest;
 import com.neotys.nlweb.bench.event.model.BenchEvent;
 import com.neotys.nlweb.bench.event.rest.client.BenchResultEventApiRestClient;
 import com.neotys.nlweb.bench.result.im.api.definition.request.StoreMappingRequest;
 import com.neotys.nlweb.bench.result.im.api.definition.result.StorePointsResult;
 import com.neotys.nlweb.bench.result.im.api.restclient.BenchResultImApiRestClient;
-import com.neotys.nlweb.bench.result.raw.api.data.ImmutableRawMapping;
-import com.neotys.nlweb.bench.result.raw.api.data.RawMapping;
-import com.neotys.nlweb.bench.result.raw.api.data.RawMappingElement;
-import com.neotys.nlweb.bench.result.raw.api.definition.request.ImmutableStoreRawMappingRequest;
 import com.neotys.nlweb.bench.result.raw.api.definition.request.StoreRawMappingRequest;
 import com.neotys.nlweb.bench.result.raw.api.definition.request.StoreRawPointsRequest;
 import com.neotys.nlweb.bench.result.raw.api.restclient.BenchResultRawApiRestClient;
@@ -41,7 +36,6 @@ import java.util.List;
 import java.util.Map;
 
 import static java.util.Optional.empty;
-import static java.util.stream.Collectors.toMap;
 
 public class NLWebAPIClient {
 
@@ -153,30 +147,11 @@ public class NLWebAPIClient {
         return benchDefinitionApiRestClient.addBenchStatistics(token, AddBenchStatisticsRequest.createRequest(benchId, BenchStatistics.of(stats)));
     }
 
-    public Completable defineNewElements(final String benchId, List<BenchElement> newElements, final ElementBuilder userPathElementBuilder) {
-        return benchDefinitionGatewayApiRestClient.defineNewElements(token, buildNewElementsRequest(benchId, newElements, userPathElementBuilder)).toCompletable();
+    public Completable defineNewElements(final DefineNewElementsRequest defineNewElementsRequest) {
+        return benchDefinitionGatewayApiRestClient.defineNewElements(token, defineNewElementsRequest).toCompletable();
     }
 
-    private ImmutableDefineNewElementsRequest buildNewElementsRequest(final String benchId, final List<BenchElement> newElements, final ElementBuilder userPathElementBuilder) {
-        newElements.stream().map(Mapper::toNlwElement).forEach(userPathElementBuilder::addChild);
-        return ImmutableDefineNewElementsRequest.builder()
-                .benchId(benchId)
-                .addCounters(userPathElementBuilder.build())
-                .build();
-    }
-
-    public Completable storeRawMapping(final String benchId, final List<BenchElement> newElements) {
-        return rawApiRestClient.storeRawMapping(token, buildStoreRawMappingRequest(benchId, newElements)).toCompletable();
-    }
-
-    private static StoreRawMappingRequest buildStoreRawMappingRequest(final String benchId, final List<BenchElement> newElements) {
-        final Map<Integer, RawMappingElement> elements = newElements.stream().collect(toMap(BenchElement::getObjectId, e -> Mapper.toRawMappingElement(benchId, e)));
-        final RawMapping mapping = ImmutableRawMapping.builder()
-                .putAllRawMappingElements(elements)
-                .build();
-        return ImmutableStoreRawMappingRequest.builder()
-                .benchId(benchId)
-                .rawMapping(mapping)
-                .build();
+    public Completable storeRawMapping(final StoreRawMappingRequest storeRawMappingRequest) {
+        return rawApiRestClient.storeRawMapping(token, storeRawMappingRequest).toCompletable();
     }
 }

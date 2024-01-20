@@ -2,6 +2,8 @@ package com.tricentis.neoload;
 
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.neotys.nlweb.apis.gateway.benchdefinition.api.definition.request.DefineNewElementsRequest;
+import com.neotys.nlweb.apis.gateway.benchdefinition.api.definition.request.ImmutableDefineNewElementsRequest;
 import com.neotys.nlweb.bench.definition.common.BenchStatus;
 import com.neotys.nlweb.bench.definition.common.FamilyName;
 import com.neotys.nlweb.bench.definition.common.model.BenchStatistics;
@@ -13,9 +15,10 @@ import com.neotys.nlweb.bench.definition.storage.model.Scenario;
 import com.neotys.nlweb.bench.definition.storage.model.element.Element;
 import com.neotys.nlweb.bench.definition.storage.model.element.ElementBuilder;
 import com.neotys.nlweb.bench.result.im.data.point.ImCounterPoint;
-import com.neotys.nlweb.bench.result.raw.api.data.ImmutableRawPoint;
-import com.neotys.nlweb.bench.result.raw.api.data.RawPoint;
+import com.neotys.nlweb.bench.result.raw.api.data.*;
+import com.neotys.nlweb.bench.result.raw.api.definition.request.ImmutableStoreRawMappingRequest;
 import com.neotys.nlweb.bench.result.raw.api.definition.request.ImmutableStoreRawPointsRequest;
+import com.neotys.nlweb.bench.result.raw.api.definition.request.StoreRawMappingRequest;
 import com.neotys.nlweb.bench.result.raw.api.definition.request.StoreRawPointsRequest;
 import com.neotys.nlweb.bench.result.stm.api.definition.request.StorePointsRequest;
 import com.neotys.nlweb.bench.stm.agg.data.point.STMAggPoint;
@@ -49,6 +52,7 @@ import java.util.stream.Collectors;
 
 import static java.util.Optional.empty;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 
 /**
  * @author lcharlois
@@ -179,7 +183,7 @@ public class NLWebRuntime implements Closeable {
         final List<BenchElement> newElements = bulk.getNewElements();
         final List<STMAggPoint> points = bulk.getValues()
                 .stream()
-                .map(values -> Mapper.toStmPoint(scriptName, values))
+                .map(values -> BenchElementMapper.toStmPoint(scriptName, values))
                 .collect(toList());
 
         requestsElements.addAll(newElements.stream().filter(e -> e.getKind() == BenchElement.Kind.REQUEST).map(BenchElement::getUuid).collect(Collectors.toSet()));
@@ -206,14 +210,35 @@ public class NLWebRuntime implements Closeable {
 
         Completable completableStoreMappingAndRawData;
         if (!newElements.isEmpty()) {
+            final DefineNewElementsRequest defineNewElementsRequest = buildNewElementsRequest(benchId, newElements, getUserPathElementBuilder());
+            final StoreRawMappingRequest storeRawMappingRequest = buildStoreRawMappingRequest(benchId, newElements);
             completableStoreMappingAndRawData = Completable.merge(
-                    nlWebAPIClient.defineNewElements(benchId, newElements, getUserPathElementBuilder()),
-                    nlWebAPIClient.storeRawMapping(benchId, newElements)
+                    nlWebAPIClient.defineNewElements(defineNewElementsRequest),
+                    nlWebAPIClient.storeRawMapping(storeRawMappingRequest)
             ).andThen(Completable.merge(sendStmPoints, storeRawPointsCompletable));
         } else {
             completableStoreMappingAndRawData = Completable.merge(sendStmPoints, storeRawPointsCompletable);
         }
         return logCompletable(completableStoreMappingAndRawData, "storeMappingAndRawData done...");
+    }
+
+    private ImmutableDefineNewElementsRequest buildNewElementsRequest(final String benchId, final List<BenchElement> newElements, final ElementBuilder userPathElementBuilder) {
+        newElements.stream().map(BenchElementMapper::toNlwElement).forEach(userPathElementBuilder::addChild);
+        return ImmutableDefineNewElementsRequest.builder()
+                .benchId(benchId)
+                .addCounters(userPathElementBuilder.build())
+                .build();
+    }
+
+    private static StoreRawMappingRequest buildStoreRawMappingRequest(final String benchId, final List<BenchElement> newElements) {
+        final Map<Integer, RawMappingElement> elements = newElements.stream().collect(toMap(BenchElement::getObjectId, e -> BenchElementMapper.toRawMappingElement(benchId, e)));
+        final RawMapping mapping = ImmutableRawMapping.builder()
+                .putAllRawMappingElements(elements)
+                .build();
+        return ImmutableStoreRawMappingRequest.builder()
+                .benchId(benchId)
+                .rawMapping(mapping)
+                .build();
     }
 
     private Completable logCompletable(Completable completable, String msgOnSuccess) {
@@ -304,7 +329,7 @@ public class NLWebRuntime implements Closeable {
                 .project(Project.of(scriptName, scriptName))
                 .scenario(Scenario.of(scriptName, scriptName, empty()))
                 .loadPolicies(ImmutableListMultimap.of())
-                .dataSources(Mapper.toDataSources(scriptName, userPathElement, monitorsRootElement))
+                .dataSources(BenchElementMapper.toDataSources(scriptName, userPathElement, monitorsRootElement))
                 .nlGuiVersion(pluginVersion)
                 .percentilesOnRawData(Optional.of(true));
         if (workspaceId != null && !"".equals(workspaceId)) {

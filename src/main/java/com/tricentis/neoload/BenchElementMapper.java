@@ -21,7 +21,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 
-public class Mapper {
+public class BenchElementMapper {
 
     private static final String DEFAULT_ZONE_OR_POPULATION = "default";
     private static final AtomicLong EMITTER_ID = new AtomicLong();
@@ -90,7 +90,7 @@ public class Mapper {
     }
 
     public static List<DataSource> toDataSources(final String scriptName, final Element rootElement, final Element monitorsRootElement) {
-        return ImmutableList.of(Mapper.toUserPathsDataSource(rootElement, scriptName), toMonitorsDataSource(monitorsRootElement));
+        return ImmutableList.of(BenchElementMapper.toUserPathsDataSource(rootElement, scriptName), toMonitorsDataSource(monitorsRootElement));
     }
 
     private static DataSource toUserPathsDataSource(final Element rootElement, final String scriptName) {
