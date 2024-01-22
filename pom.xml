@@ -48,7 +48,6 @@
             <groupId>com.neotys.nlweb.bench-definition</groupId>
             <artifactId>nlweb-bench-definition-api-data</artifactId>
             <version>5.2.6</version>
-            <!-- TODO check if it's ok. -->
             <exclusions>
                 <exclusion>
                     <artifactId>neoload-project</artifactId>
@@ -160,6 +159,12 @@
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>4.11</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <version>5.9.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
