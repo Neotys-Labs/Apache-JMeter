@@ -1,4 +1,4 @@
-package com.tricentis.neoload;
+package com.tricentis.neoload.jmx;
 
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
@@ -10,32 +10,32 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-import static com.tricentis.neoload.ProjectHelper.extractThreadGroups;
-import static com.tricentis.neoload.ProjectHelper.trimEmptyLines;
+import static com.tricentis.neoload.jmx.JMXProjectParser.extractThreadGroups;
+import static com.tricentis.neoload.jmx.JMXProjectParser.trimEmptyLines;
 import static org.junit.Assert.assertEquals;
 
-public class ProjectHelperTest {
+public class JMXProjectParserTest {
 
     @Test
     public void instrumentWithNLBackendListener_should_throw_when_no_threadgroup() {
         final Exception e = Assertions.assertThrows(
-                InstrumentationException.class,
+                JMXException.class,
                 () -> instrumentWithNLBackendListener("projectWithNoThreadGroup.jmx")
         );
         assertEquals("No thread group found", e.getMessage());
     }
 
     @Test()
-    public void instrumentWithNLBackendListener_should_throw_when_already_contain_backendlistener() throws IOException, InstrumentationException {
+    public void instrumentWithNLBackendListener_should_throw_when_already_contain_backendlistener() throws IOException, JMXException {
         final Exception e = Assertions.assertThrows(
-                InstrumentationException.class,
+                JMXException.class,
                 () -> instrumentWithNLBackendListener("projectWithOneThreadGroup_WithNLBackendListener.jmx")
         );
         assertEquals("NeoLoadBackend listener already present", e.getMessage());
     }
 
     @Test
-    public void testInstrumentWithNLBackendListener() throws IOException, InstrumentationException {
+    public void testInstrumentWithNLBackendListener() throws IOException, JMXException {
         assertEqualesIgnoreEmptyLines(
                 readResourcesFile("projectWithOneThreadGroup_WithNLBackendListener.jmx"),
                 instrumentWithNLBackendListener("projectWithOneThreadGroup_WithoutNLBackendListener.jmx"));
@@ -46,7 +46,7 @@ public class ProjectHelperTest {
     }
 
     @Test
-    public void testExtractThreadGroups() throws IOException, InstrumentationException {
+    public void testExtractThreadGroups() throws IOException, JMXException {
         List<String> threadGroups = extractThreadGroups(
                 readResourcesFile("projectWithNoThreadGroup.jmx"));
         assertEquals(0, threadGroups.size());
@@ -82,7 +82,7 @@ public class ProjectHelperTest {
     private static String readResourcesFile(final String fileName) throws IOException {
         StringBuilder textBuilder = new StringBuilder();
         try (Reader reader = new BufferedReader(new InputStreamReader
-                (ProjectHelperTest.class.getClassLoader().getResourceAsStream(fileName), StandardCharsets.UTF_8))) {
+                (JMXProjectParserTest.class.getClassLoader().getResourceAsStream(fileName), StandardCharsets.UTF_8))) {
             int c = 0;
             while ((c = reader.read()) != -1) {
                 textBuilder.append((char) c);
@@ -91,7 +91,7 @@ public class ProjectHelperTest {
         return textBuilder.toString();
     }
 
-    private static String instrumentWithNLBackendListener(final String fileName) throws IOException, InstrumentationException {
-        return ProjectHelper.instrumentWithNLBackendListener(readResourcesFile(fileName));
+    private static String instrumentWithNLBackendListener(final String fileName) throws IOException, JMXException {
+        return JMXProjectParser.instrumentWithNLBackendListener(readResourcesFile(fileName));
     }
 }

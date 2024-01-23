@@ -1,4 +1,4 @@
-package com.tricentis.neoload;
+package com.tricentis.neoload.jmx;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class ProjectHelper {
+public class JMXProjectParser {
 
 
     private static final String TEST_PLAN_END_TAG = "</hashTree>  </hashTree></jmeterTestPlan>";
@@ -21,7 +21,7 @@ public class ProjectHelper {
     private static final String REGEXP_EXTRACT_THREAD_GROUPS = "<ThreadGroup([^>]+) testname=\"([^>\"]+)\"";
     private static final Pattern PATTERN_EXTRACT_THREAD_GROUPS = Pattern.compile(REGEXP_EXTRACT_THREAD_GROUPS);
 
-    private ProjectHelper() {
+    private JMXProjectParser() {
     }
 
     public static List<String> extractThreadGroups(final Path jmxPath) throws IOException {
@@ -39,18 +39,18 @@ public class ProjectHelper {
     }
 
 
-    public static void instrumentWithNLBackendListener(final Path jmxPath) throws IOException, InstrumentationException {
+    public static void instrumentWithNLBackendListener(final Path jmxPath) throws IOException, JMXException {
         final String jmxContent = read(jmxPath);
         final String newJmxContent = instrumentWithNLBackendListener(jmxContent);
         Files.write(jmxPath, newJmxContent.getBytes());
     }
 
-    static String instrumentWithNLBackendListener(String jmxContent) throws InstrumentationException {
+    static String instrumentWithNLBackendListener(String jmxContent) throws JMXException {
         if (extractThreadGroups(jmxContent).isEmpty()) {
-            throw new InstrumentationException("No thread group found");
+            throw new JMXException("No thread group found");
         }
         if (jmxContent.contains(BACKEND_LISTENER_STRING_PROP)) {
-            throw new InstrumentationException("NeoLoadBackend listener already present");
+            throw new JMXException("NeoLoadBackend listener already present");
         }
         jmxContent = trimEmptyLines(jmxContent);
         if (jmxContent.contains(TEST_PLAN_END_TAG)) {
@@ -71,7 +71,7 @@ public class ProjectHelper {
     }
 
 
-    public static void main(String[] args) throws IOException, InstrumentationException {
+    public static void main(String[] args) throws IOException, JMXException {
         instrumentWithNLBackendListener(Paths.get("C:\\GoogleDrive\\Documents\\work\\OSS\\ApacheJMeter\\projects\\tmp.jmx"));
 
         extractThreadGroups(Paths.get("C:\\GoogleDrive\\Documents\\work\\OSS\\ApacheJMeter\\projects\\tmp.jmx")).forEach(System.out::println);
