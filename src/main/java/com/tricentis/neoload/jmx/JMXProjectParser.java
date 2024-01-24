@@ -4,8 +4,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -24,14 +24,14 @@ public class JMXProjectParser {
     private JMXProjectParser() {
     }
 
-    public static List<String> extractThreadGroups(final Path jmxPath) throws IOException {
+    public static Set<String> extractThreadGroups(final Path jmxPath) throws IOException {
         final String jmxContent = read(jmxPath);
         return extractThreadGroups(jmxContent);
     }
 
-    public static List<String> extractThreadGroups(final String jmxContent) {
+    public static Set<String> extractThreadGroups(final String jmxContent) {
         final Matcher matcher = PATTERN_EXTRACT_THREAD_GROUPS.matcher(jmxContent);
-        final List<String> threadGroups = new ArrayList<>();
+        final Set<String> threadGroups = new HashSet<>();
         while (matcher.find()) {
             threadGroups.add(matcher.group(2));
         }

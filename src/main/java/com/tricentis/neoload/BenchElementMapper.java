@@ -26,14 +26,16 @@ public class BenchElementMapper {
     private static final String DEFAULT_ZONE_OR_POPULATION = "default";
     private static final AtomicLong EMITTER_ID = new AtomicLong();
 
+    private BenchElementMapper() {
+    }
 
-    public static RawMappingElement toRawMappingElement(final String scriptName, final BenchElement element) {
+    public static RawMappingElement toRawMappingElement(final BenchElement element) {
         return ImmutableRawMappingElement.builder()
                 .populationId(DEFAULT_ZONE_OR_POPULATION)
-                .userPathId(scriptName)
+                .userPathId(element.getThreadGroupName())
                 .zoneId(DEFAULT_ZONE_OR_POPULATION)
                 .elementId(element.getUuid())
-                .parentId(scriptName)
+                .parentId(element.getThreadGroupName())
                 .build();
     }
 
@@ -45,21 +47,26 @@ public class BenchElementMapper {
                 .build();
     }
 
-    public static STMAggPoint toStmPoint(final String scriptName, final ElementResults values) {
-        final Map<Boolean, List<SampleResult>> successErrorResults = values.getResults()
+    public static List<STMAggPoint> toStmPoint(final ElementResults values) {
+        final Map<String, List<SampleResult>> resultsPerThreadGroups = values.getResults().stream().collect(Collectors.groupingBy(ThreadGroupNameCache::getThreadGroupName));
+        return resultsPerThreadGroups.entrySet().stream().map(entry -> toStmPoint(entry.getKey(), entry.getValue(), (int) values.getOffset(), values.getUuid())).collect(toList());
+    }
+
+    public static STMAggPoint toStmPoint(final String threadGroupName, final List<SampleResult> sampleResults, final int offset, final String uuid) {
+        final Map<Boolean, List<SampleResult>> successErrorResults = sampleResults
                 .stream()
                 .collect(Collectors.groupingBy(SampleResult::isSuccessful));
 
         final Optional<StmElementComputer> ok = StmElementComputer.fromResults(successErrorResults.get(true));
         final Optional<StmElementComputer> ko = StmElementComputer.fromResults(successErrorResults.get(false));
-        final int offset = (int) values.getOffset();
+
         return STMAggPointBuilder.newPointBuilder()
-                .id(values.getUuid())
+                .id(uuid)
                 .emitterId((int) EMITTER_ID.incrementAndGet() % 1024)
                 .failure(toSTMAggPointStat(ko))
                 .success(toSTMAggPointStat(ok))
                 .populationId(DEFAULT_ZONE_OR_POPULATION)
-                .userPathId(scriptName)
+                .userPathId(threadGroupName)
                 .zoneId(DEFAULT_ZONE_OR_POPULATION)
                 .timeOffset(offset)
                 .build();
@@ -89,24 +96,22 @@ public class BenchElementMapper {
         }
     }
 
-    public static List<DataSource> toDataSources(final String scriptName, final Element rootElement, final Element monitorsRootElement) {
-        return ImmutableList.of(BenchElementMapper.toUserPathsDataSource(rootElement, scriptName), toMonitorsDataSource(monitorsRootElement));
+    public static List<DataSource> toDataSources(final Set<Element> userPathElements, final Element monitorsRootElement) {
+        return ImmutableList.of(BenchElementMapper.toUserPathsDataSource(userPathElements), toMonitorsDataSource(monitorsRootElement));
     }
 
-    private static DataSource toUserPathsDataSource(final Element rootElement, final String scriptName) {
+    private static DataSource toUserPathsDataSource(final Set<Element> userPathElements) {
         final List<Context> zoneContexts = ImmutableList.of(Context.of(DEFAULT_ZONE_OR_POPULATION));
         final ContextRoot crZones = ContextRoot.of(ContextRoot.ZONES_ID, zoneContexts);
         final List<Context> populationContexts = ImmutableList.of(Context.of(DEFAULT_ZONE_OR_POPULATION));
         final ContextRoot crPopulations = ContextRoot.of(ContextRoot.POPULATIONS_ID, populationContexts);
-        final List<Context> vuContexts = ImmutableList.of(Context.of(scriptName));
+        final List<Context> vuContexts = userPathElements.stream().map(Element::getId).map(Context::of).collect(toList());
         final ContextRoot crVus = ContextRoot.of(ContextRoot.USER_PATHS_ID, vuContexts);
         final List<ContextRoot> contextRoots = Arrays.asList(crZones, crPopulations, crVus);
 
 
         final List<GroupFilter> filters = ImmutableList.of(GroupFilter.requestsGroupFilter(emptyList()), GroupFilter.transactionsGroupFilter(emptyList()));
-
-        final DataSourceEntry dataSourceEntry = DataSourceEntry.withRootContextId(scriptName, rootElement, filters);
-        final List<DataSourceEntry> dataSourceEntries = ImmutableList.of(dataSourceEntry);
+        final List<DataSourceEntry> dataSourceEntries = userPathElements.stream().map(userPathElement -> DataSourceEntry.withRootContextId(userPathElement.getId(), userPathElement, filters)).collect(toList());
 
 
         final List<Family> families = ImmutableList.of(Families.DEFAULT_USER_PATH, Families.DEFAULT_TRANSACTION, Families.DEFAULT_REQUEST);

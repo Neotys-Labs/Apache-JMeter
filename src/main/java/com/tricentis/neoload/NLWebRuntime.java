@@ -25,6 +25,7 @@ import com.neotys.nlweb.bench.stm.agg.data.point.STMAggPoint;
 import com.neotys.nlweb.benchdefinition.api.definition.result.AddBenchStatisticsResult;
 import com.neotys.timeseries.data.Point;
 import com.neotys.web.data.ValueNumber;
+import com.tricentis.neoload.jmx.JMXProjectParser;
 import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.lang3.tuple.Triple;
@@ -40,9 +41,12 @@ import rx.Completable;
 import rx.Single;
 
 import java.io.Closeable;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -75,25 +79,29 @@ public class NLWebRuntime implements Closeable {
 
     // Main test info
     private final String benchId;
-    private final Element userPathElement;
+    private final Set<Element> userPathElements;
     private final Element monitorsRootElement;
     private final String scriptName;
     private final long startDate;
 
     // Aggregators / Collectors
-    private final OverallAggregator aggregator;
-    private final ResultsAggregatorManager aggregatorManager;
-    private final EventsCollector eventsCollector;
+    private final OverallAggregator aggregator = new OverallAggregator();
+
+    private final ResultsAggregatorManager aggregatorManager = new ResultsAggregatorManager(STM_SAMPLING_INTERVAL_IN_MILLISECONDS);
+    private final EventsCollector eventsCollector = new EventsCollector();
 
     private final Set<String> requestsElements = new HashSet<>();
 
-    private final ScheduledExecutorService executorService;
-    private AtomicInteger totalCount = new AtomicInteger(0);
-    private AtomicInteger totalOkCount = new AtomicInteger(0);
-    private AtomicInteger totalKoCount = new AtomicInteger(0);
+    private static final int EXECUTOR_SERVCE_CORE_POOL_SIZE = 3;
+    private static final String EXECUTOR_SERVCE_NAMING_PATTERN = "jmeter-nlw";
+    private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(EXECUTOR_SERVCE_CORE_POOL_SIZE, new BasicThreadFactory.Builder().namingPattern(EXECUTOR_SERVCE_NAMING_PATTERN).build());
+
+    private final AtomicInteger totalCount = new AtomicInteger(0);
+    private final AtomicInteger totalOkCount = new AtomicInteger(0);
+    private final AtomicInteger totalKoCount = new AtomicInteger(0);
 
 
-    NLWebRuntime(final BackendListenerContext context) throws MalformedURLException {
+    NLWebRuntime(final BackendListenerContext context) throws IOException {
         final String urlStringParameter = context.getParameter(NeoLoadBackendParameters.NEOLOADWEB_API_URL.getName());
         final URL url = new URL(urlStringParameter);
         workspaceId = context.getParameter(NeoLoadBackendParameters.NEOLOADWEB_WORKSPACE_ID.getName());
@@ -101,20 +109,25 @@ public class NLWebRuntime implements Closeable {
         final String token = context.getParameter(NeoLoadBackendParameters.NEOLOADWEB_API_TOKEN.getName());
         nlWebAPIClient = new NLWebAPIClient(url.getHost(), url.getPort(), urlStringParameter.startsWith("https://"), url.getPath(), token);
         benchId = UUID.randomUUID().toString();
-        aggregator = new OverallAggregator();
-        aggregatorManager = new ResultsAggregatorManager(STM_SAMPLING_INTERVAL_IN_MILLISECONDS);
-        executorService = Executors.newScheduledThreadPool(3, new BasicThreadFactory.Builder().namingPattern("jmeter-nlw").build());
-        eventsCollector = new EventsCollector();
-        scriptName = FileServer.getFileServer().getScriptName();
+        final FileServer fileServer = FileServer.getFileServer();
+        scriptName = fileServer.getScriptName();
+        final Path jmx = Paths.get(fileServer.getBaseDir(), scriptName);
+        logInfo(String.format("Parsing JMX project %s", jmx));
+        final Set<String> threadGroups = JMXProjectParser.extractThreadGroups(jmx);
+        if (threadGroups.isEmpty()) {
+            // If no thread group is detected, then create a single node with the JMX project name
+            threadGroups.add(scriptName);
+        }
+        logInfo(String.format("Thread groups detected: %s", String.join(", ", threadGroups)));
         startDate = System.currentTimeMillis();
         aggregator.start(startDate);
         aggregatorManager.start(startDate);
         eventsCollector.start(startDate);
-        userPathElement = ElementBuilder.builder()
-                .id(scriptName)
-                .name(scriptName)
+        userPathElements = threadGroups.stream().map(threadGroup -> ElementBuilder.builder()
+                .id(threadGroup)
+                .name(threadGroup)
                 .familyId(FamilyName.USER_PATH.name())
-                .build();
+                .build()).collect(Collectors.toSet());
         monitorsRootElement = ElementBuilder.builder()
                 .name("JMeter")
                 .id("f20d1600-8c67-47df-8117-e36bb952c15b")
@@ -142,9 +155,10 @@ public class NLWebRuntime implements Closeable {
     public void close() {
         try {
             executorService.shutdown();
-            executorService.awaitTermination(30, TimeUnit.SECONDS);
+            final boolean terminated = executorService.awaitTermination(30, TimeUnit.SECONDS);
+            logDebug(String.format("Executor service termination status: %b", terminated));
         } catch (InterruptedException e) {
-            LOGGER.error("Error while closing NLWebRuntime", e);
+            logError("Error while closing NLWebRuntime", e);
         }
         this.updateStatisticsBlocking();
         this.updateEventsBlocking();
@@ -183,17 +197,15 @@ public class NLWebRuntime implements Closeable {
         final List<BenchElement> newElements = bulk.getNewElements();
         final List<STMAggPoint> points = bulk.getValues()
                 .stream()
-                .map(values -> BenchElementMapper.toStmPoint(scriptName, values))
+                .map(BenchElementMapper::toStmPoint)
+                .flatMap(List::stream)
                 .collect(toList());
 
         requestsElements.addAll(newElements.stream().filter(e -> e.getKind() == BenchElement.Kind.REQUEST).map(BenchElement::getUuid).collect(Collectors.toSet()));
 
-        totalCount.addAndGet(points.stream().filter(x -> requestsElements.contains(x.getId()) && x.getSuccessAndFailure().isPresent())
-                .collect(Collectors.summingInt(p -> p.getSuccessAndFailure().get().getCount())));
-        totalOkCount.addAndGet(points.stream().filter(x -> requestsElements.contains(x.getId()) && x.getSuccess().isPresent())
-                .collect(Collectors.summingInt(p -> p.getSuccess().get().getCount())));
-        totalKoCount.addAndGet(points.stream().filter(x -> requestsElements.contains(x.getId()) && x.getFailure().isPresent())
-                .collect(Collectors.summingInt(p -> p.getFailure().get().getCount())));
+        totalCount.addAndGet(points.stream().filter(x -> requestsElements.contains(x.getId()) && x.getSuccessAndFailure().isPresent()).mapToInt(p -> p.getSuccessAndFailure().get().getCount()).sum());
+        totalOkCount.addAndGet(points.stream().filter(x -> requestsElements.contains(x.getId()) && x.getSuccess().isPresent()).mapToInt(p -> p.getSuccess().get().getCount()).sum());
+        totalKoCount.addAndGet(points.stream().filter(x -> requestsElements.contains(x.getId()) && x.getFailure().isPresent()).mapToInt(p -> p.getFailure().get().getCount()).sum());
 
 
         final StorePointsRequest storePointsRequest = StorePointsRequest.createRequest(benchId, points);
@@ -210,7 +222,7 @@ public class NLWebRuntime implements Closeable {
 
         Completable completableStoreMappingAndRawData;
         if (!newElements.isEmpty()) {
-            final DefineNewElementsRequest defineNewElementsRequest = buildNewElementsRequest(benchId, newElements, getUserPathElementBuilder());
+            final DefineNewElementsRequest defineNewElementsRequest = buildNewElementsRequest(benchId, newElements);
             final StoreRawMappingRequest storeRawMappingRequest = buildStoreRawMappingRequest(benchId, newElements);
             completableStoreMappingAndRawData = Completable.merge(
                     nlWebAPIClient.defineNewElements(defineNewElementsRequest),
@@ -222,16 +234,29 @@ public class NLWebRuntime implements Closeable {
         return logCompletable(completableStoreMappingAndRawData, "storeMappingAndRawData done...");
     }
 
-    private ImmutableDefineNewElementsRequest buildNewElementsRequest(final String benchId, final List<BenchElement> newElements, final ElementBuilder userPathElementBuilder) {
-        newElements.stream().map(BenchElementMapper::toNlwElement).forEach(userPathElementBuilder::addChild);
+    private ImmutableDefineNewElementsRequest buildNewElementsRequest(final String benchId, final List<BenchElement> newElements) {
+        final Map<String, List<BenchElement>> newElementsPerThreadGroupName = newElements.stream().collect(Collectors.groupingBy(BenchElement::getThreadGroupName));
+        final List<Element> elements = newElementsPerThreadGroupName.entrySet().stream().map(entry -> buildNewElement(entry.getKey(), entry.getValue())).collect(toList());
         return ImmutableDefineNewElementsRequest.builder()
                 .benchId(benchId)
-                .addCounters(userPathElementBuilder.build())
+                .addAllCounters(elements)
                 .build();
     }
 
+    private Element buildNewElement(final String threadGroupName, final List<BenchElement> newElements) {
+        final Element userPathElement = userPathElements.stream().filter(element -> element.getId().equals(threadGroupName)).findAny()
+                .orElseGet(() -> userPathElements.stream().findFirst().get());
+        final ElementBuilder userPathElementBuilder = ElementBuilder.builder()
+                .id(userPathElement.getId())
+                .familyId(userPathElement.getFamilyId());
+        userPathElement.getName().ifPresent(userPathElementBuilder::name);
+        newElements.stream().map(BenchElementMapper::toNlwElement).forEach(userPathElementBuilder::addChild);
+        return userPathElementBuilder.build();
+
+    }
+
     private static StoreRawMappingRequest buildStoreRawMappingRequest(final String benchId, final List<BenchElement> newElements) {
-        final Map<Integer, RawMappingElement> elements = newElements.stream().collect(toMap(BenchElement::getObjectId, e -> BenchElementMapper.toRawMappingElement(benchId, e)));
+        final Map<Integer, RawMappingElement> elements = newElements.stream().collect(toMap(BenchElement::getObjectId, BenchElementMapper::toRawMappingElement));
         final RawMapping mapping = ImmutableRawMapping.builder()
                 .putAllRawMappingElements(elements)
                 .build();
@@ -242,7 +267,7 @@ public class NLWebRuntime implements Closeable {
     }
 
     private Completable logCompletable(Completable completable, String msgOnSuccess) {
-        return completable.doOnCompleted(() -> LOGGER.debug(msgOnSuccess)).doOnError(e -> LOGGER.error("Error on method logCompletable", e));
+        return completable.doOnCompleted(() -> logDebug(msgOnSuccess)).doOnError(e -> logError("Error on method logCompletable", e));
     }
 
     private RawPoint toRawPoint(final SampleResult sampleResult) {
@@ -257,16 +282,6 @@ public class NLWebRuntime implements Closeable {
     }
 
 
-    private ElementBuilder getUserPathElementBuilder() {
-        final ElementBuilder builder = ElementBuilder.builder()
-                .id(userPathElement.getId())
-                .familyId(userPathElement.getFamilyId());
-        userPathElement.getName().ifPresent(builder::name);
-        return builder;
-
-    }
-
-
     private void updateStatisticsAsync() {
         updateStatistics().subscribe();
     }
@@ -277,7 +292,7 @@ public class NLWebRuntime implements Closeable {
 
 
     private <T> Single<T> logSingle(Single<T> single, String msgOnSuccess) {
-        return single.doOnSuccess(resp -> LOGGER.debug(msgOnSuccess)).doOnError(e -> LOGGER.error("Error on method logSingle", e));
+        return single.doOnSuccess(resp -> logDebug(msgOnSuccess)).doOnError(e -> logError("Error on method logSingle", e));
     }
 
 
@@ -298,14 +313,20 @@ public class NLWebRuntime implements Closeable {
     private static Triple<Integer, Integer, Integer> getPluginVersionDigits() {
         try {
             final MavenXpp3Reader reader = new MavenXpp3Reader();
-            final Model model = reader.read(new InputStreamReader(NLWebRuntime.class.getResourceAsStream(POM_PATH)));
+            final InputStream is = NLWebRuntime.class.getResourceAsStream(POM_PATH);
+            if (is == null) {
+                logError(String.format("Error while retrieving plugin version: cannot load pom: %s", POM_PATH));
+                return VERSION_1_0_0;
+            }
+            final Model model = reader.read(new InputStreamReader(is));
             final String[] versionDigits = model.getVersion().split("\\-")[0].split("\\.");
             return ImmutableTriple.of(Integer.parseInt(versionDigits[0]), Integer.parseInt(versionDigits[1]), Integer.parseInt(versionDigits[2]));
         } catch (final Exception e) {
-            LOGGER.error("Error while retrieving plugin version", e);
+            logError("Error while retrieving plugin version", e);
             return VERSION_1_0_0;
         }
     }
+
 
     private static String getJMeterVersion() {
         return "jmeter-" + JMeterUtils.getJMeterVersion();
@@ -329,7 +350,7 @@ public class NLWebRuntime implements Closeable {
                 .project(Project.of(scriptName, scriptName))
                 .scenario(Scenario.of(scriptName, scriptName, empty()))
                 .loadPolicies(ImmutableListMultimap.of())
-                .dataSources(BenchElementMapper.toDataSources(scriptName, userPathElement, monitorsRootElement))
+                .dataSources(BenchElementMapper.toDataSources(userPathElements, monitorsRootElement))
                 .nlGuiVersion(pluginVersion)
                 .percentilesOnRawData(Optional.of(true));
         if (workspaceId != null && !"".equals(workspaceId)) {
@@ -351,4 +372,27 @@ public class NLWebRuntime implements Closeable {
         logSingle(nlWebAPIClient.storeIMPoints(request), "Stored monitors points [" + points.size() + "/" + Monitor.values().length + "]").subscribe();
     }
 
+    private static void logInfo(final String log) {
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(log);
+        }
+    }
+
+    private static void logError(final String log) {
+        if (LOGGER.isErrorEnabled()) {
+            LOGGER.error(log);
+        }
+    }
+
+    private static void logError(final String log, final Throwable t) {
+        if (LOGGER.isErrorEnabled()) {
+            LOGGER.error(log, t);
+        }
+    }
+
+    private static void logDebug(final String log) {
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug(log);
+        }
+    }
 }

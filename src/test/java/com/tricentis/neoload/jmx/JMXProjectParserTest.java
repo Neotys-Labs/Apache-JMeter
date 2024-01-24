@@ -3,14 +3,11 @@ package com.tricentis.neoload.jmx;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
-import static com.tricentis.neoload.jmx.JMXProjectParser.extractThreadGroups;
 import static com.tricentis.neoload.jmx.JMXProjectParser.trimEmptyLines;
 import static org.junit.Assert.assertEquals;
 
@@ -26,7 +23,7 @@ public class JMXProjectParserTest {
     }
 
     @Test()
-    public void instrumentWithNLBackendListener_should_throw_when_already_contain_backendlistener() throws IOException, JMXException {
+    public void instrumentWithNLBackendListener_should_throw_when_already_contain_backendlistener() {
         final Exception e = Assertions.assertThrows(
                 JMXException.class,
                 () -> instrumentWithNLBackendListener("projectWithOneThreadGroup_WithNLBackendListener.jmx")
@@ -36,54 +33,56 @@ public class JMXProjectParserTest {
 
     @Test
     public void testInstrumentWithNLBackendListener() throws IOException, JMXException {
-        assertEqualesIgnoreEmptyLines(
+        assertEqualsIgnoreEmptyLines(
                 readResourcesFile("projectWithOneThreadGroup_WithNLBackendListener.jmx"),
                 instrumentWithNLBackendListener("projectWithOneThreadGroup_WithoutNLBackendListener.jmx"));
 
-        assertEqualesIgnoreEmptyLines(
+        assertEqualsIgnoreEmptyLines(
                 readResourcesFile("projectWithTwoThreadGroups_WithNLBackendListener.jmx"),
                 instrumentWithNLBackendListener("projectWithTwoThreadGroups_WithoutNLBackendListener.jmx"));
     }
 
+    private static List<String> extractThreadGroups(final String jmx) throws IOException {
+        return new ArrayList<>(JMXProjectParser.extractThreadGroups(JMXProjectParserTest.readResourcesFile(jmx)));
+    }
+
     @Test
-    public void testExtractThreadGroups() throws IOException, JMXException {
-        List<String> threadGroups = extractThreadGroups(
-                readResourcesFile("projectWithNoThreadGroup.jmx"));
+    public void testExtractThreadGroups() throws IOException {
+        List<String> threadGroups = new ArrayList<>(extractThreadGroups("projectWithNoThreadGroup.jmx"));
         assertEquals(0, threadGroups.size());
 
-        threadGroups = extractThreadGroups(
-                readResourcesFile("projectWithOneThreadGroup_WithNLBackendListener.jmx"));
+        threadGroups = extractThreadGroups("projectWithOneThreadGroup_WithNLBackendListener.jmx");
         assertEquals(1, threadGroups.size());
         assertEquals("Thread Group", threadGroups.get(0));
 
-        threadGroups = extractThreadGroups(
-                readResourcesFile("projectWithOneThreadGroup_WithoutNLBackendListener.jmx"));
+        threadGroups = extractThreadGroups("projectWithOneThreadGroup_WithoutNLBackendListener.jmx");
         assertEquals(1, threadGroups.size());
         assertEquals("Thread Group", threadGroups.get(0));
 
-        threadGroups = extractThreadGroups(
-                readResourcesFile("projectWithTwoThreadGroups_WithNLBackendListener.jmx"));
+        threadGroups = extractThreadGroups("projectWithTwoThreadGroups_WithNLBackendListener.jmx");
         assertEquals(2, threadGroups.size());
-        assertEquals("Thread Group A", threadGroups.get(0));
-        assertEquals("Thread Group B", threadGroups.get(1));
+        assertEquals("Thread Group B", threadGroups.get(0));
+        assertEquals("Thread Group A", threadGroups.get(1));
 
-        threadGroups = extractThreadGroups(
-                readResourcesFile("projectWithTwoThreadGroups_WithoutNLBackendListener.jmx"));
+        threadGroups = extractThreadGroups("projectWithTwoThreadGroups_WithoutNLBackendListener.jmx");
         assertEquals(2, threadGroups.size());
-        assertEquals("Thread Group A", threadGroups.get(0));
-        assertEquals("Thread Group B", threadGroups.get(1));
+        assertEquals("Thread Group B", threadGroups.get(0));
+        assertEquals("Thread Group A", threadGroups.get(1));
 
     }
 
-    private void assertEqualesIgnoreEmptyLines(final String expectedJMXContent, final String actualJMXContent) {
+    private void assertEqualsIgnoreEmptyLines(final String expectedJMXContent, final String actualJMXContent) {
         assertEquals(trimEmptyLines(expectedJMXContent), trimEmptyLines(actualJMXContent));
     }
 
     private static String readResourcesFile(final String fileName) throws IOException {
         StringBuilder textBuilder = new StringBuilder();
-        try (Reader reader = new BufferedReader(new InputStreamReader
-                (JMXProjectParserTest.class.getClassLoader().getResourceAsStream(fileName), StandardCharsets.UTF_8))) {
-            int c = 0;
+        final InputStream is = JMXProjectParserTest.class.getClassLoader().getResourceAsStream(fileName);
+        if (is == null) {
+            return "";
+        }
+        try (Reader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+            int c;
             while ((c = reader.read()) != -1) {
                 textBuilder.append((char) c);
             }

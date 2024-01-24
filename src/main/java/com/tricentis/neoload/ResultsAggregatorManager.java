@@ -10,15 +10,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
+import static com.tricentis.neoload.ThreadGroupNameCache.getThreadGroupName;
+
 /**
  * @author lcharlois
  * @since 09/12/2021.
  */
 class ResultsAggregatorManager {
-    private final Map<String, String> uuidByLabel = new HashMap<>();
-    private final Map<String, Integer> objectIdByLabel = new HashMap<>();
+    private final Map<String, Map<String, String>> uuidByLabelByThreadGroupName = new HashMap<>();
+    private final Map<String, Map<String, Integer>> objectIdByLabelByThreadGroupName = new HashMap<>();
     private final BlockingQueue<BenchElement> newElements = new LinkedBlockingQueue<>();
-    private final Map<String, ElementAggregator> aggregatorByUuid = new HashMap<>();
+    private final Map<String, Map<String, ElementAggregator>> aggregatorByUuidByThreadGroupName = new HashMap<>();
     private long startTime;
     private final int samplingInterval;
     // Must start at 5.
@@ -45,11 +47,27 @@ class ResultsAggregatorManager {
             for (final SampleResult result : sampleResults) {
                 final String sampleLabel = result.getSampleLabel();
                 final String uuid = UUID.nameUUIDFromBytes(sampleLabel.getBytes()).toString();
+                final String threadGroupName = getThreadGroupName(result);
+                Map<String, String> uuidByLabel = uuidByLabelByThreadGroupName.get(threadGroupName);
+                if (uuidByLabel == null) {
+                    uuidByLabel = new HashMap<>();
+                    uuidByLabelByThreadGroupName.put(threadGroupName, uuidByLabel);
+                }
+                Map<String, Integer> objectIdByLabel = objectIdByLabelByThreadGroupName.get(threadGroupName);
+                if (objectIdByLabel == null) {
+                    objectIdByLabel = new HashMap<>();
+                    objectIdByLabelByThreadGroupName.put(threadGroupName, objectIdByLabel);
+                }
                 if (!uuidByLabel.containsKey(sampleLabel)) {
                     final int objectId = objectIdGenerator.getAndIncrement();
-                    newElements.add(BenchElement.newElement(uuid, objectId, sampleLabel, getKind(result)));
+                    newElements.add(BenchElement.newElement(uuid, objectId, sampleLabel, getKind(result), getThreadGroupName(result)));
                     uuidByLabel.put(sampleLabel, uuid);
                     objectIdByLabel.put(sampleLabel, objectId);
+                }
+                Map<String, ElementAggregator> aggregatorByUuid = aggregatorByUuidByThreadGroupName.get(threadGroupName);
+                if (aggregatorByUuid == null) {
+                    aggregatorByUuid = new HashMap<>();
+                    aggregatorByUuidByThreadGroupName.put(threadGroupName, aggregatorByUuid);
                 }
                 final ElementAggregator elementAggregator = aggregatorByUuid.computeIfAbsent(uuid, key -> new ElementAggregator(key, startTime, samplingInterval));
                 elementAggregator.addResult(result);
@@ -70,7 +88,14 @@ class ResultsAggregatorManager {
         try {
             final List<BenchElement> newElementsCopy = new ArrayList<>();
             newElements.drainTo(newElementsCopy);
-            final List<ElementResults> values = aggregatorByUuid.values().stream().map(ElementAggregator::collect).flatMap(Collection::stream).collect(Collectors.toList());
+            final List<ElementResults> values = aggregatorByUuidByThreadGroupName
+                    .values()
+                    .stream()
+                    .map(Map::values)
+                    .flatMap(Collection::stream)
+                    .map(ElementAggregator::collect)
+                    .flatMap(Collection::stream)
+                    .collect(Collectors.toList());
             return new StatisticsBulk(newElementsCopy, values);
         } finally {
             lock.unlock();
@@ -78,7 +103,6 @@ class ResultsAggregatorManager {
     }
 
     Integer getObjectId(final SampleResult sampleResult) {
-        return objectIdByLabel.get(sampleResult.getSampleLabel());
+        return objectIdByLabelByThreadGroupName.get(getThreadGroupName(sampleResult)).get(sampleResult.getSampleLabel());
     }
-
 }

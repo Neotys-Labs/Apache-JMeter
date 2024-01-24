@@ -182,6 +182,7 @@ Then from the IDE create a Remote JVM debug launcher, attaching to host localhos
 
 ## ChangeLog
 
+* Version 1.0.11 (Jan 23rd 2024): Support of multi thread groups
 * Version 1.0.10 (Jan 17th 2024): Improve logging
 * Version 1.0.9 (Dec 6th 2023): Retrieve JMeter version for data usage purpose
 * Version 1.0.8 (Oct 16th 2023): Security updates
