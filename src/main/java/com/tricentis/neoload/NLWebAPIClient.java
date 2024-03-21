@@ -32,6 +32,8 @@ import org.slf4j.LoggerFactory;
 import rx.Completable;
 import rx.Single;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.List;
 import java.util.Map;
 
@@ -52,17 +54,19 @@ public class NLWebAPIClient {
 
     public final String token;
 
-    NLWebAPIClient(final String host, final int port, final boolean useSsl, final String path, final String token) {
+    NLWebAPIClient(final NLWebContext nlWebContext) throws MalformedURLException {
+        final URL url = new URL(nlWebContext.getApiUrl());
+        final boolean useSsl = nlWebContext.getApiUrl().startsWith("https://");
         vertx = Vertx.vertx();
         final HttpVertxClientOptions clientOptions = new HttpVertxClientOptions();
         clientOptions.setUseSSL(useSsl);
         if (useSsl) clientOptions.setTrustAll(true);
-        clientOptions.setHost(host);
-        final int defaultedPort = port > 0 ? port : getDefaultPort(useSsl);
+        clientOptions.setHost(url.getHost());
+        final int defaultedPort = url.getPort() > 0 ? url.getPort() : getDefaultPort(useSsl);
         clientOptions.setPort(defaultedPort);
         clientOptions.setIdleTimeout(60000);
         clientOptions.setConnectTimeout(20000);
-        final String defaultedPath = StringUtils.isEmpty(path) ? "/nlweb/rest" : path + "/nlweb/rest";
+        final String defaultedPath = StringUtils.isEmpty(url.getPath()) ? "/nlweb/rest" : url.getPath() + "/nlweb/rest";
         clientOptions.setBaseURL(defaultedPath);
         clientOptions.setProductTag("JMETER");
         client = HttpVertxClient.build(vertx, clientOptions);
@@ -72,7 +76,7 @@ public class NLWebAPIClient {
         rawApiRestClient = BenchResultRawApiRestClient.of(client);
         benchDefinitionGatewayApiRestClient = BenchDefinitionGatewayApiRestClient.of(client);
         benchResultImApiRestClient = BenchResultImApiRestClient.of(client);
-        this.token = token;
+        this.token = nlWebContext.getApiToken();
     }
 
     private static int getDefaultPort(final boolean useSsl) {

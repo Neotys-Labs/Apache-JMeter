@@ -65,16 +65,12 @@ public class JMXProjectParser {
         }
     }
 
-
     static String trimEmptyLines(final String s) {
         return s.replace("\n", "").replace("\r", "");
     }
 
-
     public static void main(String[] args) throws IOException, JMXException {
         instrumentWithNLBackendListener(Paths.get("C:\\GoogleDrive\\Documents\\work\\OSS\\ApacheJMeter\\projects\\tmp.jmx"));
-
         extractThreadGroups(Paths.get("C:\\GoogleDrive\\Documents\\work\\OSS\\ApacheJMeter\\projects\\tmp.jmx")).forEach(System.out::println);
     }
-
 }

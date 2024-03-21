@@ -44,7 +44,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
@@ -72,13 +71,8 @@ public class NLWebRuntime implements Closeable {
     private static final Triple<Integer, Integer, Integer> VERSION_1_0_0 = ImmutableTriple.of(1, 0, 0);
     private final NLWebAPIClient nlWebAPIClient;
 
-    // Listener configuration
+    private final NLWebContext nlWebContext;
 
-    private final String workspaceId;
-    private final String testId;
-
-    // Main test info
-    private final String benchId;
     private final Set<Element> userPathElements;
     private final Element monitorsRootElement;
     private final String scriptName;
@@ -102,13 +96,8 @@ public class NLWebRuntime implements Closeable {
 
 
     NLWebRuntime(final BackendListenerContext context) throws IOException {
-        final String urlStringParameter = context.getParameter(NeoLoadBackendParameters.NEOLOADWEB_API_URL.getName());
-        final URL url = new URL(urlStringParameter);
-        workspaceId = context.getParameter(NeoLoadBackendParameters.NEOLOADWEB_WORKSPACE_ID.getName());
-        testId = context.getParameter(NeoLoadBackendParameters.NEOLOADWEB_TEST_ID.getName());
-        final String token = context.getParameter(NeoLoadBackendParameters.NEOLOADWEB_API_TOKEN.getName());
-        nlWebAPIClient = new NLWebAPIClient(url.getHost(), url.getPort(), urlStringParameter.startsWith("https://"), url.getPath(), token);
-        benchId = UUID.randomUUID().toString();
+        nlWebContext = BackendListenerContextToNLWebContext.INSTANCE.apply(context);
+        nlWebAPIClient = new NLWebAPIClient(nlWebContext);
         final FileServer fileServer = FileServer.getFileServer();
         scriptName = fileServer.getScriptName();
         final Path jmx = Paths.get(fileServer.getBaseDir(), scriptName);
@@ -139,8 +128,8 @@ public class NLWebRuntime implements Closeable {
 
     public void start() {
         nlWebAPIClient.createBench(createBenchDefinition());
-        nlWebAPIClient.storeMapping(benchId, monitorsRootElement);
-        nlWebAPIClient.storeBenchStartedData(benchId, startDate);
+        nlWebAPIClient.storeMapping(nlWebContext.getBenchId(), monitorsRootElement);
+        nlWebAPIClient.storeBenchStartedData(nlWebContext.getBenchId(), startDate);
         scheduleExecutorServices();
     }
 
@@ -163,7 +152,7 @@ public class NLWebRuntime implements Closeable {
         this.updateStatisticsBlocking();
         this.updateEventsBlocking();
         this.updateStmAndRawBlocking();
-        nlWebAPIClient.stopBench(benchId);
+        nlWebAPIClient.stopBench(nlWebContext.getBenchId());
     }
 
     void addSamples(final List<SampleResult> sampleResults) {
@@ -181,7 +170,7 @@ public class NLWebRuntime implements Closeable {
     }
 
     private Completable updateEvents() {
-        return logCompletable(nlWebAPIClient.storeBenchEvents(benchId, eventsCollector.collect()), "updateEvents done...");
+        return logCompletable(nlWebAPIClient.storeBenchEvents(nlWebContext.getBenchId(), eventsCollector.collect()), "updateEvents done...");
     }
 
     private void updateStmAndRawAsync() {
@@ -208,13 +197,13 @@ public class NLWebRuntime implements Closeable {
         totalKoCount.addAndGet(points.stream().filter(x -> requestsElements.contains(x.getId()) && x.getFailure().isPresent()).mapToInt(p -> p.getFailure().get().getCount()).sum());
 
 
-        final StorePointsRequest storePointsRequest = StorePointsRequest.createRequest(benchId, points);
+        final StorePointsRequest storePointsRequest = StorePointsRequest.createRequest(nlWebContext.getBenchId(), points);
 
         final Completable sendStmPoints = points.isEmpty() ? Completable.complete() : nlWebAPIClient.storeSTMPoints(storePointsRequest);
 
         final List<RawPoint> rawPoints = bulk.getValues().stream().flatMap(ElementResults::stream).map(this::toRawPoint).collect(toList());
         final StoreRawPointsRequest storeRawPointsRequest = ImmutableStoreRawPointsRequest.builder()
-                .benchId(benchId)
+                .benchId(nlWebContext.getBenchId())
                 .bucketId(UUID.randomUUID().toString())
                 .addAllPoints(rawPoints)
                 .build();
@@ -222,8 +211,8 @@ public class NLWebRuntime implements Closeable {
 
         Completable completableStoreMappingAndRawData;
         if (!newElements.isEmpty()) {
-            final DefineNewElementsRequest defineNewElementsRequest = buildNewElementsRequest(benchId, newElements);
-            final StoreRawMappingRequest storeRawMappingRequest = buildStoreRawMappingRequest(benchId, newElements);
+            final DefineNewElementsRequest defineNewElementsRequest = buildNewElementsRequest(nlWebContext.getBenchId(), newElements);
+            final StoreRawMappingRequest storeRawMappingRequest = buildStoreRawMappingRequest(nlWebContext.getBenchId(), newElements);
             completableStoreMappingAndRawData = Completable.merge(
                     nlWebAPIClient.defineNewElements(defineNewElementsRequest),
                     nlWebAPIClient.storeRawMapping(storeRawMappingRequest)
@@ -297,7 +286,7 @@ public class NLWebRuntime implements Closeable {
 
 
     private Single<AddBenchStatisticsResult> updateStatistics() {
-        return logSingle(nlWebAPIClient.addBenchStatistics(benchId, aggregator.getStats()), "updateStatistics done...");
+        return logSingle(nlWebAPIClient.addBenchStatistics(nlWebContext.getBenchId(), aggregator.getStats()), "updateStatistics done...");
     }
 
     private static ProductVersion getVersion() {
@@ -343,7 +332,7 @@ public class NLWebRuntime implements Closeable {
                 .duration(0)
                 .status(BenchStatus.STARTING)
                 .estimateMaxVuCount(0)
-                .id(benchId)
+                .id(nlWebContext.getBenchId())
                 .lgCount(1)
                 .name(scriptName)
                 .statistics(BenchStatistics.of(ImmutableMap.of()))
@@ -353,11 +342,11 @@ public class NLWebRuntime implements Closeable {
                 .dataSources(BenchElementMapper.toDataSources(userPathElements, monitorsRootElement))
                 .nlGuiVersion(pluginVersion)
                 .percentilesOnRawData(Optional.of(true));
-        if (workspaceId != null && !"".equals(workspaceId)) {
-            benchDefinitionBuilder.groupId(workspaceId);
+        if (nlWebContext.getWorkspaceId() != null && !"".equals(nlWebContext.getWorkspaceId())) {
+            benchDefinitionBuilder.groupId(nlWebContext.getWorkspaceId());
         }
-        if (testId != null && !"".equals(testId)) {
-            benchDefinitionBuilder.testSettingsId(Optional.of(testId));
+        if (nlWebContext.getTestId() != null && !"".equals(nlWebContext.getTestId())) {
+            benchDefinitionBuilder.testSettingsId(Optional.of(nlWebContext.getTestId()));
         }
         return benchDefinitionBuilder.build();
     }
@@ -368,7 +357,7 @@ public class NLWebRuntime implements Closeable {
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(Collectors.toList());
-        final com.neotys.nlweb.bench.result.im.api.definition.request.StorePointsRequest request = com.neotys.nlweb.bench.result.im.api.definition.request.StorePointsRequest.createStorePointsRequest(benchId, points);
+        final com.neotys.nlweb.bench.result.im.api.definition.request.StorePointsRequest request = com.neotys.nlweb.bench.result.im.api.definition.request.StorePointsRequest.createStorePointsRequest(nlWebContext.getBenchId(), points);
         logSingle(nlWebAPIClient.storeIMPoints(request), "Stored monitors points [" + points.size() + "/" + Monitor.values().length + "]").subscribe();
     }
 
