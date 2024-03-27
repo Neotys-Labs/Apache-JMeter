@@ -182,6 +182,7 @@ Then from the IDE create a Remote JVM debug launcher, attaching to host localhos
 
 ## ChangeLog
 
+* Version 1.0.12 (Mar 27th 2024): Support of launching from NLWeb
 * Version 1.0.11 (Jan 23rd 2024): Support of multi thread groups
 * Version 1.0.10 (Jan 17th 2024): Improve logging
 * Version 1.0.9 (Dec 6th 2023): Retrieve JMeter version for data usage purpose
