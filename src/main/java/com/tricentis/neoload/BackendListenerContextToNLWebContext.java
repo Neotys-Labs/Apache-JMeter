@@ -18,8 +18,10 @@ public final class BackendListenerContextToNLWebContext implements Function<Back
         final String urlStringParameter = System.getenv("NEOLOADWEB_API_URL");
         if (urlStringParameter == null) {
             builder.apiUrl(backendListenerContext.getParameter(NeoLoadBackendParameters.NEOLOADWEB_API_URL.getName()));
+            builder.startedByNlw(false);
         } else {
             builder.apiUrl(urlStringParameter);
+            builder.startedByNlw(true);
         }
 
         final String token = System.getenv("NEOLOADWEB_API_TOKEN");

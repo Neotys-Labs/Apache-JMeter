@@ -14,4 +14,6 @@ public interface NLWebContext {
     String getTestId();
 
     String getBenchId();
+
+    boolean startedByNlw();
 }

@@ -341,7 +341,8 @@ public class NLWebRuntime implements Closeable {
                 .loadPolicies(ImmutableListMultimap.of())
                 .dataSources(BenchElementMapper.toDataSources(userPathElements, monitorsRootElement))
                 .nlGuiVersion(pluginVersion)
-                .percentilesOnRawData(Optional.of(true));
+                .percentilesOnRawData(Optional.of(true))
+                .startedByNlw(nlWebContext.startedByNlw());
         if (nlWebContext.getWorkspaceId() != null && !"".equals(nlWebContext.getWorkspaceId())) {
             benchDefinitionBuilder.groupId(nlWebContext.getWorkspaceId());
         }
