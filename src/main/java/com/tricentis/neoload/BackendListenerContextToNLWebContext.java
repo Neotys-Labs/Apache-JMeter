@@ -1,5 +1,6 @@
 package com.tricentis.neoload;
 
+import java.util.Optional;
 import org.apache.jmeter.visualizers.backend.BackendListenerContext;
 
 import java.util.UUID;
@@ -52,6 +53,7 @@ public final class BackendListenerContextToNLWebContext implements Function<Back
             builder.benchId(benchId);
         }
 
+        builder.controllerAgentUuid(Optional.ofNullable(System.getenv("CONTROLLER_AGENT_UUID")));
         return builder.build();
     }
 }
