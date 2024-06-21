@@ -31,6 +31,7 @@ import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.jmeter.samplers.SampleResult;
 import org.apache.jmeter.services.FileServer;
+import org.apache.jmeter.threads.JMeterContextService;
 import org.apache.jmeter.util.JMeterUtils;
 import org.apache.jmeter.visualizers.backend.BackendListenerContext;
 import org.apache.maven.model.Model;
@@ -102,7 +103,8 @@ public class NLWebRuntime implements Closeable {
         scriptName = fileServer.getScriptName();
         final Path jmx = Paths.get(fileServer.getBaseDir(), scriptName);
         logInfo(String.format("Parsing JMX project %s", jmx));
-        final Set<String> threadGroups = JMXProjectParser.extractThreadGroups(jmx);
+
+        final Set<String> threadGroups = JMXProjectParser.extractThreadGroups(jmx); // TODO This extract all thread groups event desactivated
         if (threadGroups.isEmpty()) {
             // If no thread group is detected, then create a single node with the JMX project name
             threadGroups.add(scriptName);
@@ -233,8 +235,9 @@ public class NLWebRuntime implements Closeable {
     }
 
     private Element buildNewElement(final String threadGroupName, final List<BenchElement> newElements) {
-        final Element userPathElement = userPathElements.stream().filter(element -> element.getId().equals(threadGroupName)).findAny()
+        final Element userPathElement = userPathElements.stream().filter(element -> element.getName().equals(threadGroupName)).findAny()
                 .orElseGet(() -> userPathElements.stream().findFirst().get());
+
         final ElementBuilder userPathElementBuilder = ElementBuilder.builder()
                 .id(userPathElement.getId())
                 .familyId(userPathElement.getFamilyId());
@@ -329,11 +332,11 @@ public class NLWebRuntime implements Closeable {
                 .benchStatisticsSamplingInterval(1)
                 .debug(false)
                 .description("Test executed by Apache " + pluginVersion.getBuild() + " with NeoLoad plugin version " + pluginVersion.getMajor() + "." + pluginVersion.getMinor() + "." + pluginVersion.getFix() + ".")
-                .duration(0)
+                .duration(0) // TODO ??
                 .status(BenchStatus.STARTING)
                 .estimateMaxVuCount(0)
                 .id(nlWebContext.getBenchId())
-                .lgCount(1)
+                .lgCount(1) // TODO LG = 1 ???
                 .name(scriptName)
                 .statistics(BenchStatistics.of(ImmutableMap.of()))
                 .project(Project.of(scriptName, scriptName))

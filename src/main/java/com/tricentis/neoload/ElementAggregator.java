@@ -29,7 +29,7 @@ class ElementAggregator {
     void addResult(final SampleResult result) {
         final long offset = result.getStartTime() - startTime;
         final long bucket = offset / samplingInterval;
-        statByBucket.computeIfAbsent(bucket, key -> new ElementResults(getThreadGroupName(result) + uuid, bucket * samplingInterval)).add(result);
+        statByBucket.computeIfAbsent(bucket, key -> new ElementResults(uuid, bucket * samplingInterval)).add(result);
     }
 
     List<ElementResults> collect() {

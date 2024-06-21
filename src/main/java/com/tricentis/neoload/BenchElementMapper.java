@@ -31,9 +31,9 @@ public class BenchElementMapper {
 
     public static RawMappingElement toRawMappingElement(final BenchElement element) {
         return ImmutableRawMappingElement.builder()
-                .populationId(DEFAULT_ZONE_OR_POPULATION)
+                .populationId(DEFAULT_ZONE_OR_POPULATION) // TODO TO BE optional ??
                 .userPathId(element.getThreadGroupName())
-                .zoneId(DEFAULT_ZONE_OR_POPULATION)
+                .zoneId(DEFAULT_ZONE_OR_POPULATION) // TODO ???
                 .elementId(element.getUuid())
                 .parentId(element.getThreadGroupName())
                 .build();
@@ -52,7 +52,15 @@ public class BenchElementMapper {
         return resultsPerThreadGroups.entrySet().stream().map(entry -> toStmPoint(entry.getKey(), entry.getValue(), (int) values.getOffset(), values.getUuid())).collect(toList());
     }
 
-    public static STMAggPoint toStmPoint(final String threadGroupName, final List<SampleResult> sampleResults, final int offset, final String uuid) {
+//    private static String findId(String name, final Set<Element> userPathElements) {
+//        return userPathElements.stream()
+//            .filter(e -> e.getName().equals(name))
+//            .map(Element::getName)
+//            .map(o->o.orElse(null))
+//            .findFirst().orElse(null);
+//    }
+
+    private static STMAggPoint toStmPoint(final String threadGroupName, final List<SampleResult> sampleResults, final int offset, final String uuid) {
         final Map<Boolean, List<SampleResult>> successErrorResults = sampleResults
                 .stream()
                 .collect(Collectors.groupingBy(SampleResult::isSuccessful));

@@ -21,7 +21,7 @@ class BenchElement {
     }
 
     static BenchElement newElement(final String uuid, final Integer objectId, final String name, final Kind kind, final String threadGroupName) {
-        return new BenchElement(threadGroupName + uuid, objectId, name, kind, threadGroupName);
+        return new BenchElement(uuid, objectId, name, kind, threadGroupName);
     }
 
     String getUuid() {
