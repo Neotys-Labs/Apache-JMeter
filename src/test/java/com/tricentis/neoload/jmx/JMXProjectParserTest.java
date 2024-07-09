@@ -1,20 +1,20 @@
 package com.tricentis.neoload.jmx;
 
-import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.jupiter.api.Test;
 
 import static com.tricentis.neoload.jmx.JMXProjectParser.trimEmptyLines;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class JMXProjectParserTest {
+class JMXProjectParserTest {
 
     @Test
-    public void instrumentWithNLBackendListener_should_throw_when_no_threadgroup() {
+    void instrumentWithNLBackendListener_should_throw_when_no_threadgroup() {
         final Exception e = Assertions.assertThrows(
                 JMXException.class,
                 () -> instrumentWithNLBackendListener("projectWithNoThreadGroup.jmx")
@@ -23,7 +23,7 @@ public class JMXProjectParserTest {
     }
 
     @Test()
-    public void instrumentWithNLBackendListener_should_throw_when_already_contain_backendlistener() {
+    void instrumentWithNLBackendListener_should_throw_when_already_contain_backendlistener() {
         final Exception e = Assertions.assertThrows(
                 JMXException.class,
                 () -> instrumentWithNLBackendListener("projectWithOneThreadGroup_WithNLBackendListener.jmx")
@@ -32,7 +32,7 @@ public class JMXProjectParserTest {
     }
 
     @Test
-    public void testInstrumentWithNLBackendListener() throws IOException, JMXException {
+    void testInstrumentWithNLBackendListener() throws IOException, JMXException {
         assertEqualsIgnoreEmptyLines(
                 readResourcesFile("projectWithOneThreadGroup_WithNLBackendListener.jmx"),
                 instrumentWithNLBackendListener("projectWithOneThreadGroup_WithoutNLBackendListener.jmx"));
@@ -47,7 +47,7 @@ public class JMXProjectParserTest {
     }
 
     @Test
-    public void testExtractThreadGroups() throws IOException {
+    void testExtractThreadGroups() throws IOException {
         List<String> threadGroups = new ArrayList<>(extractThreadGroups("projectWithNoThreadGroup.jmx"));
         assertEquals(0, threadGroups.size());
 
