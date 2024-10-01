@@ -24,70 +24,76 @@ import static com.google.common.base.Predicates.not;
  */
 public class NeoLoadBackend extends AbstractBackendListenerClient {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(NeoLoadBackend.class);
-    private NLWebRuntime nlwebRuntime;
-    private int totalCount = 0;
-    private long totalOk = 0;
-    private long totalKo = 0;
-    ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
+	private static final Logger LOGGER = LoggerFactory.getLogger(NeoLoadBackend.class);
+	private NLWebRuntime nlwebRuntime;
+	private int totalCount = 0;
+	private long totalOk = 0;
+	private long totalKo = 0;
+	ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
 
-    @Override
-    public void setupTest(final BackendListenerContext context) throws Exception {
-        neoloadSetup(context);
-        super.setupTest(context);
-    }
+	@Override
+	public void setupTest(final BackendListenerContext context) throws Exception {
+		try {
+			LOGGER.info("NeoLoad Backend Listener setupTest");
+			neoloadSetup(context);
+			super.setupTest(context);
+		} catch (final Exception e) {
+			LOGGER.error("Error during setupTest", e);
+			throw e;
+		}
+	}
 
-    private void neoloadSetup(final BackendListenerContext context) throws Exception {
-        nlwebRuntime = new NLWebRuntime(context);
-        nlwebRuntime.start();
-        executor.scheduleAtFixedRate(this::logCounters, 0, 1, TimeUnit.SECONDS);
-    }
+	private void neoloadSetup(final BackendListenerContext context) throws Exception {
+		nlwebRuntime = new NLWebRuntime(context);
+		nlwebRuntime.start();
+		executor.scheduleAtFixedRate(this::logCounters, 0, 1, TimeUnit.SECONDS);
+	}
 
-    private void logCounters() {
-        if (LOGGER.isDebugEnabled())
-            LOGGER.debug(String.format("Received requests from JMeter => %d Ok %d Ko %d", totalCount, totalOk, totalKo));
-    }
+	private void logCounters() {
+		if (LOGGER.isDebugEnabled())
+			LOGGER.debug(String.format("Received requests from JMeter => %d Ok %d Ko %d", totalCount, totalOk, totalKo));
+	}
 
-    @Override
-    public void handleSampleResults(final List<SampleResult> list, final BackendListenerContext backendListenerContext) {
-        final List<SampleResult> effectiveList = expandList(list);
-        calcCounts(effectiveList);
-        nlwebRuntime.addSamples(effectiveList);
-    }
-
-
-    private List<SampleResult> expandList(List<SampleResult> list) {
-        return Stream.concat(
-                list.stream(),
-                extractRequestsInTransaction(list).stream()
-        ).collect(Collectors.toList());
-    }
-
-    private List<SampleResult> extractRequestsInTransaction(List<SampleResult> list) {
-        return list.stream().flatMap(x -> Arrays.stream(x.getSubResults())).collect(Collectors.toList());
-    }
-
-    private void calcCounts(List<SampleResult> sampleList) {
-        final List<SampleResult> requests = sampleList.stream()
-                .filter(not(TransactionController::isFromTransactionController)).collect(Collectors.toList());
-        totalCount += requests.size();
-        totalOk += requests.stream().filter(SampleResult::isSuccessful).count();
-        totalKo += requests.stream().filter(not(SampleResult::isSuccessful)).count();
-    }
+	@Override
+	public void handleSampleResults(final List<SampleResult> list, final BackendListenerContext backendListenerContext) {
+		final List<SampleResult> effectiveList = expandList(list);
+		calcCounts(effectiveList);
+		nlwebRuntime.addSamples(effectiveList);
+	}
 
 
-    @Override
-    public void teardownTest(final BackendListenerContext context) throws Exception {
-        executor.awaitTermination(5, TimeUnit.SECONDS);
-        logCounters();
-        nlwebRuntime.close();
-        executor.shutdown();
-        nlwebRuntime = null;
-        super.teardownTest(context);
-    }
+	private List<SampleResult> expandList(List<SampleResult> list) {
+		return Stream.concat(
+				list.stream(),
+				extractRequestsInTransaction(list).stream()
+		).collect(Collectors.toList());
+	}
 
-    @Override
-    public Arguments getDefaultParameters() {
-        return new Arguments();
-    }
+	private List<SampleResult> extractRequestsInTransaction(List<SampleResult> list) {
+		return list.stream().flatMap(x -> Arrays.stream(x.getSubResults())).collect(Collectors.toList());
+	}
+
+	private void calcCounts(List<SampleResult> sampleList) {
+		final List<SampleResult> requests = sampleList.stream()
+				.filter(not(TransactionController::isFromTransactionController)).collect(Collectors.toList());
+		totalCount += requests.size();
+		totalOk += requests.stream().filter(SampleResult::isSuccessful).count();
+		totalKo += requests.stream().filter(not(SampleResult::isSuccessful)).count();
+	}
+
+
+	@Override
+	public void teardownTest(final BackendListenerContext context) throws Exception {
+		executor.awaitTermination(5, TimeUnit.SECONDS);
+		logCounters();
+		nlwebRuntime.close();
+		executor.shutdown();
+		nlwebRuntime = null;
+		super.teardownTest(context);
+	}
+
+	@Override
+	public Arguments getDefaultParameters() {
+		return new Arguments();
+	}
 }
