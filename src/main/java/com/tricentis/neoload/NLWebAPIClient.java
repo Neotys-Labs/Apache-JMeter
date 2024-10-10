@@ -66,6 +66,12 @@ public class NLWebAPIClient {
         clientOptions.setPort(defaultedPort);
         clientOptions.setIdleTimeout(60000);
         clientOptions.setConnectTimeout(20000);
+        if(nlWebContext.getProxyInfo() != null) {
+            clientOptions.setProxyHost(nlWebContext.getProxyInfo().getHost());
+            clientOptions.setProxyPort(nlWebContext.getProxyInfo().getPort());
+            clientOptions.setProxyUsername(nlWebContext.getProxyInfo().getLogin());
+            clientOptions.setProxyPassword(nlWebContext.getProxyInfo().getPassword());
+        }
         final String defaultedPath = StringUtils.isEmpty(url.getPath()) ? "/nlweb/rest" : url.getPath() + "/nlweb/rest";
         clientOptions.setBaseURL(defaultedPath);
         clientOptions.setProductTag("JMETER");

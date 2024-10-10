@@ -1,71 +1,87 @@
 package com.tricentis.neoload;
 
+import static com.tricentis.neoload.BackendListenerContextToNLWebContext.ContextParamters.*;
+
+import java.util.*;
+import java.util.stream.Collectors;
 import org.apache.jmeter.visualizers.backend.BackendListenerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Optional;
-import java.util.UUID;
 import java.util.function.Function;
 
 public final class BackendListenerContextToNLWebContext implements Function<BackendListenerContext, NLWebContext> {
-	private static final Logger LOGGER = LoggerFactory.getLogger(BackendListenerContextToNLWebContext.class);
+
+	enum ContextParamters {
+		NEOLOADWEB_API_URL(NeoLoadBackendParameters.NEOLOADWEB_API_URL),
+		NEOLOADWEB_API_TOKEN(NeoLoadBackendParameters.NEOLOADWEB_API_TOKEN),
+		NEOLOADWEB_WORKSPACE_ID(NeoLoadBackendParameters.NEOLOADWEB_WORKSPACE_ID),
+		NEOLOADWEB_TEST_ID(NeoLoadBackendParameters.NEOLOADWEB_TEST_ID),
+		NEOLOADWEB_BENCH_ID,
+		CONTROLLER_AGENT_UUID,
+		NEOLOADWEB_PROXY_HOST(NeoLoadBackendParameters.NEOLOADWEB_PROXY_HOST),
+		NEOLOADWEB_PROXY_PORT(NeoLoadBackendParameters.NEOLOADWEB_PROXY_PORT),
+		NEOLOADWEB_PROXY_LOGIN(NeoLoadBackendParameters.NEOLOADWEB_PROXY_LOGIN),
+		NEOLOADWEB_PROXY_PASSWORD(NeoLoadBackendParameters.NEOLOADWEB_PROXY_PASSWORD);
+
+		private NeoLoadBackendParameters jmeterParam;
+		ContextParamters(NeoLoadBackendParameters jmeterParam) {
+			this.jmeterParam = jmeterParam;
+		}
+		ContextParamters() {
+		}
+		public NeoLoadBackendParameters getJmeterParam() {
+			return jmeterParam;
+		}
+	}
+
 	public static final Function<BackendListenerContext, NLWebContext> INSTANCE = new BackendListenerContextToNLWebContext();
 
 	private BackendListenerContextToNLWebContext() {
 	}
 
+
 	@Override
 	public NLWebContext apply(final BackendListenerContext backendListenerContext) {
-		LOGGER.info("Create NLWebContext from BackendListenerContext");
-		final ImmutableNLWebContext.Builder builder = ImmutableNLWebContext.builder();
 
-		String apiUrl = System.getenv("NEOLOADWEB_API_URL");
-		LOGGER.info("System.getenv(\"NEOLOADWEB_API_URL\"): " + apiUrl);
-		if (apiUrl == null) {
-			apiUrl = backendListenerContext.getParameter(NeoLoadBackendParameters.NEOLOADWEB_API_URL.getName());
-			LOGGER.info("Parameter " + NeoLoadBackendParameters.NEOLOADWEB_API_URL.getName() + ": " + apiUrl);
-			builder.startedByNlw(false);
-		} else {
-			builder.startedByNlw(true);
+		Map<ContextParamters, String> paramMap = new EnumMap<>(ContextParamters.class);
+		for(ContextParamters contextParamter : ContextParamters.values()) {
+			String value = System.getenv(contextParamter.name());
+			if (value == null && contextParamter.getJmeterParam() != null) {
+				value = backendListenerContext.getParameter(contextParamter.getJmeterParam().getName());
+			}
+			if (value != null) {
+				paramMap.put(contextParamter, value);
+			}
 		}
-		builder.apiUrl(apiUrl);
 
-		String apiToken = System.getenv("NEOLOADWEB_API_TOKEN");
-		LOGGER.info("System.getenv(\"NEOLOADWEB_API_TOKEN\"): " + apiToken);
-		if (apiToken == null) {
-			apiToken = backendListenerContext.getParameter(NeoLoadBackendParameters.NEOLOADWEB_API_TOKEN.getName());
-			LOGGER.info("Parameter " + NeoLoadBackendParameters.NEOLOADWEB_API_TOKEN.getName() + ": " + apiToken);
+		boolean startedByNlWeb = System.getenv(NEOLOADWEB_API_URL.name()) != null;
+		final String benchId = paramMap.get(NEOLOADWEB_BENCH_ID);
+
+		final ImmutableNLWebContext.Builder builder =
+				ImmutableNLWebContext.builder()
+				.apiUrl(paramMap.get(NEOLOADWEB_API_URL))
+				.startedByNlw(startedByNlWeb)
+				.apiToken(paramMap.get(NEOLOADWEB_API_TOKEN))
+				.workspaceId(paramMap.get(NEOLOADWEB_WORKSPACE_ID))
+				.testId(paramMap.get(NEOLOADWEB_TEST_ID))
+				.benchId(benchId != null ? benchId : UUID.randomUUID().toString())
+				.controllerAgentUuid(paramMap.get(CONTROLLER_AGENT_UUID));
+
+		if (paramMap.containsKey(NEOLOADWEB_PROXY_HOST)) {
+			ImmutableNLWebProxyInfo.Builder proxyInfoBuilder = ImmutableNLWebProxyInfo.builder()
+					.host(paramMap.get(NEOLOADWEB_PROXY_HOST))
+					.port(Integer.parseInt(paramMap.get(NEOLOADWEB_PROXY_PORT)));
+			if (paramMap.containsKey(NEOLOADWEB_PROXY_LOGIN)) {
+				proxyInfoBuilder
+						.login(paramMap.get(NEOLOADWEB_PROXY_LOGIN));
+			}
+			if (paramMap.containsKey(NEOLOADWEB_PROXY_PASSWORD)) {
+				proxyInfoBuilder
+						.password(paramMap.get(NEOLOADWEB_PROXY_PASSWORD));
+			}
+			builder.proxyInfo(proxyInfoBuilder.build());
 		}
-		builder.apiToken(apiToken);
-
-		String workspaceId = System.getenv("NEOLOADWEB_WORKSPACE_ID");
-		LOGGER.info("System.getenv(\"NEOLOADWEB_WORKSPACE_ID\"): " + workspaceId);
-		if (workspaceId == null) {
-			workspaceId = backendListenerContext.getParameter(NeoLoadBackendParameters.NEOLOADWEB_WORKSPACE_ID.getName());
-			LOGGER.info("Parameter " + NeoLoadBackendParameters.NEOLOADWEB_WORKSPACE_ID.getName() + ": " + workspaceId);
-		}
-		builder.workspaceId(workspaceId);
-
-		String testId = System.getenv("NEOLOADWEB_TEST_ID");
-		LOGGER.info("System.getenv(\"NEOLOADWEB_TEST_ID\"): " + testId);
-		if (testId == null) {
-			testId = backendListenerContext.getParameter(NeoLoadBackendParameters.NEOLOADWEB_TEST_ID.getName());
-			LOGGER.info("Parameter " + NeoLoadBackendParameters.NEOLOADWEB_TEST_ID.getName() + ": " + testId);
-		}
-		builder.testId(testId);
-
-		String benchId = System.getenv("NEOLOADWEB_BENCH_ID");
-		LOGGER.info("System.getenv(\"NEOLOADWEB_BENCH_ID\"): " + benchId);
-		if (benchId == null) {
-			benchId = UUID.randomUUID().toString();
-			LOGGER.info("Generating new benchId with randomUUID: " + benchId);
-		}
-		builder.benchId(benchId);
-
-		final String agentUuid = System.getenv("CONTROLLER_AGENT_UUID");
-		LOGGER.info("System.getenv(\"CONTROLLER_AGENT_UUID\"): " + agentUuid);
-		builder.controllerAgentUuid(Optional.ofNullable(agentUuid));
 		return builder.build();
 	}
 }
