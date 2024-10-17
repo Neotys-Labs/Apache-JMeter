@@ -33,16 +33,17 @@ public abstract class NLWebContext {
 						.append("TestId=").append(getTestId()).append("\n")
             .append("BenchId=").append(getBenchId()).append("\n");
         if(getControllerAgentUuid().isPresent()) {
-            sb.append("ControllerAgentUuid=").append(getControllerAgentUuid().get()).append("\n");
+            sb.append("ControllerAgentUuid=").append(getControllerAgentUuid().get());
         }
         if(getProxyInfo() != null) {
+            sb.append("\n");
             sb.append("Proxy Host=").append(getProxyInfo().getHost()).append("\n")
                 .append("Proxy Port=").append(getProxyInfo().getPort()).append("\n");
             if(getProxyInfo().getLogin() != null) {
-                sb.append("Proxy Info=").append(getProxyInfo().getLogin()).append("\n");
+                sb.append("Proxy Login=").append(getProxyInfo().getLogin()).append("\n");
             }
             if(getProxyInfo().getPassword() != null) {
-                sb.append("Proxy Info=").append(getProxyInfo().getPassword()).append("\n");
+                sb.append("Proxy Password=").append("****");
             }
         }
         return sb.toString();
