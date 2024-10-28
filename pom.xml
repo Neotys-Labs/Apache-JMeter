@@ -6,7 +6,7 @@
 
 	<groupId>com.tricentis.neoload</groupId>
 	<artifactId>jmeter-listener</artifactId>
-	<version>1.0.18-SNAPSHOT</version>
+	<version>1.0.18</version>
 	<parent>
 		<groupId>com.neotys</groupId>
 		<artifactId>super-pom</artifactId>
