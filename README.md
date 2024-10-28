@@ -182,6 +182,7 @@ Then from the IDE create a Remote JVM debug launcher, attaching to host localhos
 
 ## ChangeLog
 
+* Version 1.0.18 (Oct 28th 2024): Support of Java from version 1.8
 * Version 1.0.17 (Oct 17th 2024): Fix logging proxy 
 * Version 1.0.16 (Oct 11th 2024): Add proxy support
 * Version 1.0.15 (Jul 9th 2024): Remove some log warnings
