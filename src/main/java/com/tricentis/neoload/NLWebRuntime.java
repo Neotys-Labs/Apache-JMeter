@@ -69,6 +69,7 @@ public class NLWebRuntime implements Closeable {
 
 	private static final String POM_PATH = "/META-INF/maven/com.tricentis.neoload/jmeter-listener/pom.xml";
 	private static final Triple<Integer, Integer, Integer> VERSION_1_0_0 = ImmutableTriple.of(1, 0, 0);
+	public static final int BENCH_STATISTICS_SAMPLING_INTERVAL_IN_MILLISECONDS = 1000;
 	private final NLWebAPIClient nlWebAPIClient;
 
 	private final NLWebContext nlWebContext;
@@ -136,7 +137,7 @@ public class NLWebRuntime implements Closeable {
 	}
 
 	private void scheduleExecutorServices() {
-		executorService.scheduleAtFixedRate(this::updateStatisticsAsync, 1, 1, TimeUnit.SECONDS);
+		executorService.scheduleAtFixedRate(this::updateStatisticsAsync, BENCH_STATISTICS_SAMPLING_INTERVAL_IN_MILLISECONDS, BENCH_STATISTICS_SAMPLING_INTERVAL_IN_MILLISECONDS, TimeUnit.MILLISECONDS);
 		executorService.scheduleAtFixedRate(this::updateStmAndRawAsync, STM_SAMPLING_INTERVAL_IN_MILLISECONDS, STM_SAMPLING_INTERVAL_IN_MILLISECONDS, TimeUnit.MILLISECONDS);
 		executorService.scheduleAtFixedRate(this::updateEventsAsync, 5000, 5000, TimeUnit.MILLISECONDS);
 		executorService.scheduleAtFixedRate(this::sendMonitorsAsync, MONITORS_SAMPLING_INTERVAL_IN_MILLISECONDS, MONITORS_SAMPLING_INTERVAL_IN_MILLISECONDS, TimeUnit.MILLISECONDS);
@@ -328,7 +329,7 @@ public class NLWebRuntime implements Closeable {
 		final BenchDefinitionBuilder benchDefinitionBuilder = BenchDefinitionBuilder.builder()
 				.vuhOrDaily(false)
 				.aggregationSTMAggPointsInterval(STM_SAMPLING_INTERVAL_IN_MILLISECONDS)
-				.benchStatisticsSamplingInterval(1)
+				.benchStatisticsSamplingInterval(BENCH_STATISTICS_SAMPLING_INTERVAL_IN_MILLISECONDS)
 				.debug(false)
 				.description("Test executed by Apache " + pluginVersion.getBuild() + " with NeoLoad plugin version " + pluginVersion.getMajor() + "." + pluginVersion.getMinor() + "." + pluginVersion.getFix() + ".")
 				.duration(0)
