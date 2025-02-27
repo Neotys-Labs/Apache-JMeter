@@ -96,8 +96,9 @@ public class NLWebRuntime implements Closeable {
 
 
 	NLWebRuntime(final BackendListenerContext context) throws IOException {
-		nlWebContext = BackendListenerContextToNLWebContext.INSTANCE.apply(context);
-		logInfo("NlWebContext:\n" + nlWebContext.toString());
+		final BackendListenerContextToNLWebContext backendListenerContextToNLWebContext = BackendListenerContextToNLWebContext.of(new SystemEnvironment());
+		nlWebContext = backendListenerContextToNLWebContext.apply(context);
+		logInfo("NlWebContext:\n" + nlWebContext);
 		nlWebAPIClient = new NLWebAPIClient(nlWebContext);
 		final FileServer fileServer = FileServer.getFileServer();
 		scriptName = fileServer.getScriptName();
