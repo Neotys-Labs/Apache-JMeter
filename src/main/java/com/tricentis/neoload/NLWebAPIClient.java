@@ -24,13 +24,13 @@ import com.neotys.nlweb.benchdefinition.rest.client.BenchDefinitionApiRestClient
 import com.neotys.nlweb.rest.vertx.client.HttpVertxClient;
 import com.neotys.nlweb.rest.vertx.client.HttpVertxClientOptions;
 import com.neotys.web.data.ValueNumber;
+import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.Vertx;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.jmeter.threads.JMeterContextService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import rx.Completable;
-import rx.Single;
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -91,11 +91,12 @@ public class NLWebAPIClient {
 
     public void createBench(final BenchDefinition benchDefinition) {
         LOGGER.debug("Create bench");
-        final Throwable benchDefinitionError = benchDefinitionApiRestClient.createBench(token, CreateBenchRequest.createRequest(benchDefinition))
+        try {
+            benchDefinitionApiRestClient.createBench(token, CreateBenchRequest.createRequest(benchDefinition))
                 .retry(1)
-                .toCompletable()
-                .get();
-        if (benchDefinitionError != null) {
+                .ignoreElement()
+                .blockingAwait();
+        } catch (Throwable benchDefinitionError) {
             LOGGER.error("Error while sending bench definition", benchDefinitionError);
             throw new RuntimeException(benchDefinitionError);
         }
@@ -103,11 +104,12 @@ public class NLWebAPIClient {
 
     public void storeMapping(final String benchId, final Element monitorsRootElement) {
         LOGGER.debug("Store IM mapping");
-        final Throwable storeMappingError = benchResultImApiRestClient.storeMapping(token, StoreMappingRequest.of(benchId, Monitor.getCountersByGroupId(monitorsRootElement.getId())))
+        try {
+            benchResultImApiRestClient.storeMapping(token, StoreMappingRequest.of(benchId, Monitor.getCountersByGroupId(monitorsRootElement.getId())))
                 .retry(1)
-                .toCompletable()
-                .get();
-        if (storeMappingError != null) {
+                .ignoreElement()
+                .blockingAwait();
+        } catch (Throwable storeMappingError) {
             LOGGER.error("Error while sending IM Mapping", storeMappingError);
             throw new RuntimeException(storeMappingError);
         }
@@ -116,9 +118,13 @@ public class NLWebAPIClient {
     public void storeBenchStartedData(final String benchId, final long startDate) {
         LOGGER.debug("Store bench started data");
         long preStartDate = JMeterContextService.getTestStartTime();
-        final Throwable storeBenchStartedDataError = benchDefinitionApiRestClient.storeBenchStartedData(token, StoreBenchStartedDataRequest.createRequest(benchId, preStartDate, startDate, empty()))
-                .doOnSuccess(result -> LOGGER.debug("Start data done...")).toCompletable().get();
-        if (storeBenchStartedDataError != null) {
+        try {
+            benchDefinitionApiRestClient
+                .storeBenchStartedData(token, StoreBenchStartedDataRequest.createRequest(benchId, preStartDate, startDate, empty()))
+                .doOnSuccess(result -> LOGGER.debug("Start data done..."))
+                .ignoreElement()
+                .blockingAwait();
+        } catch (Throwable storeBenchStartedDataError) {
             LOGGER.error("Error while storing Bench Started Data", storeBenchStartedDataError);
             throw new RuntimeException(storeBenchStartedDataError);
         }
@@ -128,9 +134,9 @@ public class NLWebAPIClient {
         final long stopTime = System.currentTimeMillis();
         LOGGER.debug("Setting Quality status");
         benchDefinitionApiRestClient.storeBenchPostProcessedData(token, StoreBenchPostProcessedDataRequest.createRequest(benchId, QualityStatus.PASSED))
-                .toBlocking().value();
+                .blockingGet();
         LOGGER.debug("End test");
-        benchDefinitionApiRestClient.storeBenchEndedData(token, StoreBenchEndedDataRequest.createRequest(benchId, stopTime, TerminationReason.POLICY)).toBlocking().value();
+        benchDefinitionApiRestClient.storeBenchEndedData(token, StoreBenchEndedDataRequest.createRequest(benchId, stopTime, TerminationReason.POLICY)).blockingGet();
         LOGGER.debug("Close client");
         client.close();
         LOGGER.debug("Close vertx");
@@ -146,7 +152,7 @@ public class NLWebAPIClient {
     }
 
     public Completable storeRawPoints(final StoreRawPointsRequest storeRawPointsRequest) {
-        return rawApiRestClient.storeRawPoints(token, storeRawPointsRequest).toCompletable();
+        return rawApiRestClient.storeRawPoints(token, storeRawPointsRequest).ignoreElement();
     }
 
     public Single<StorePointsResult> storeIMPoints(com.neotys.nlweb.bench.result.im.api.definition.request.StorePointsRequest request) {
@@ -158,10 +164,10 @@ public class NLWebAPIClient {
     }
 
     public Completable defineNewElements(final DefineNewElementsRequest defineNewElementsRequest) {
-        return benchDefinitionGatewayApiRestClient.defineNewElements(token, defineNewElementsRequest).toCompletable();
+        return benchDefinitionGatewayApiRestClient.defineNewElements(token, defineNewElementsRequest).ignoreElement();
     }
 
     public Completable storeRawMapping(final StoreRawMappingRequest storeRawMappingRequest) {
-        return rawApiRestClient.storeRawMapping(token, storeRawMappingRequest).toCompletable();
+        return rawApiRestClient.storeRawMapping(token, storeRawMappingRequest).ignoreElement();
     }
 }
