@@ -108,9 +108,9 @@ class EventsCollector {
             .userPathInstance(ValueNumber.of(instanceId))
             .requestDuration(ValueNumber.of(result.getTime()))
             .requestStatusLine(Optional.ofNullable(getRequestStatusLine(result)))
-            .requestHeaders(Optional.of(result.getRequestHeaders()))
-            .responseHeaders(Optional.of(result.getResponseHeaders()))
-            .transaction(Optional.of(result.getParent().getSampleLabel()))
+            .requestHeaders(Optional.ofNullable(result.getRequestHeaders()))
+            .responseHeaders(Optional.ofNullable(result.getResponseHeaders()))
+            .transaction(Optional.ofNullable(result.getParent().getSampleLabel()))
             .request(result.getSampleLabel())
             .assertionResults(errorEntryToAssertionResults(result)).build();
     }

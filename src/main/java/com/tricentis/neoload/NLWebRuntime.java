@@ -107,9 +107,9 @@ public class NLWebRuntime implements Closeable {
 		scriptName = fileServer.getScriptName();
 		logInfo("ScriptName: " + scriptName);
 		final Path jmx = Paths.get(fileServer.getBaseDir(), scriptName);
+		logInfo(String.format("Parsing JMX project %s", jmx));
 		testPlanName = JMXProjectParser.extractTestPlan(jmx);
 		logInfo("TestPlanName: " + testPlanName);
-		logInfo(String.format("Parsing JMX project %s", jmx));
 		final Set<String> threadGroups = JMXProjectParser.extractThreadGroups(jmx);
 		if (threadGroups.isEmpty()) {
 			// If no thread group is detected, then create a single node with the JMX project name

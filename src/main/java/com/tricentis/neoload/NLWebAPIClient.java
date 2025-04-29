@@ -96,7 +96,7 @@ public class NLWebAPIClient {
                 .retry(1)
                 .ignoreElement()
                 .blockingAwait();
-        } catch (Throwable benchDefinitionError) {
+        } catch (Exception benchDefinitionError) {
             LOGGER.error("Error while sending bench definition", benchDefinitionError);
             throw new RuntimeException(benchDefinitionError);
         }
@@ -109,7 +109,7 @@ public class NLWebAPIClient {
                 .retry(1)
                 .ignoreElement()
                 .blockingAwait();
-        } catch (Throwable storeMappingError) {
+        } catch (Exception storeMappingError) {
             LOGGER.error("Error while sending IM Mapping", storeMappingError);
             throw new RuntimeException(storeMappingError);
         }
@@ -124,7 +124,7 @@ public class NLWebAPIClient {
                 .doOnSuccess(result -> LOGGER.debug("Start data done..."))
                 .ignoreElement()
                 .blockingAwait();
-        } catch (Throwable storeBenchStartedDataError) {
+        } catch (Exception storeBenchStartedDataError) {
             LOGGER.error("Error while storing Bench Started Data", storeBenchStartedDataError);
             throw new RuntimeException(storeBenchStartedDataError);
         }
