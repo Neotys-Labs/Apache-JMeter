@@ -325,7 +325,7 @@ public class NLWebRuntime implements Closeable {
 	}
 
 	private static String removeExtension(String scriptName) {
-		return scriptName.split("\\.")[0];
+		return scriptName.substring(0, scriptName.lastIndexOf('.'));
 	}
 
 	private static String getJMeterVersion() {
