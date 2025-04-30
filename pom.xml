@@ -20,10 +20,19 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<jmeter.version>5.6.3</jmeter.version>
 		<slf4j.version>1.7.36</slf4j.version>
-		<io.reactivex.version>1.3.8</io.reactivex.version>
+		<io.reactivex.version>3.1.9</io.reactivex.version>
 		<org.apache.maven.version>3.9.5</org.apache.maven.version>
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<maven.compiler.target>1.8</maven.compiler.target>
+		<org.immutables.version>2.10.1</org.immutables.version>
+		<neotys-web-foundation.version>4.10.2</neotys-web-foundation.version>
+		<nlweb-bench-definition-api.version>6.9.2</nlweb-bench-definition-api.version>
+		<nlweb-apis-gateway-api.version>2.8.0</nlweb-apis-gateway-api.version>
+		<nlweb-bench-result-raw-api.version>3.8.0</nlweb-bench-result-raw-api.version>
+		<nlweb-bench-result-stm-api.version>5.8.0</nlweb-bench-result-stm-api.version>
+		<nlweb-bench-event-api.version>6.8.0</nlweb-bench-event-api.version>
+		<nlweb-bench-result-im-api.version>5.8.0</nlweb-bench-result-im-api.version>
+		<nlweb-rest-vertx-router-api.version>4.1.0</nlweb-rest-vertx-router-api.version>
 	</properties>
 
 	<dependencies>
@@ -42,12 +51,12 @@
 		<dependency>
 			<groupId>com.neotys.nlweb.rest-vertx-router</groupId>
 			<artifactId>nlweb-rest-vertx-router-api-client</artifactId>
-			<version>3.0.0</version>
+			<version>${nlweb-rest-vertx-router-api.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.neotys.nlweb.bench-definition</groupId>
 			<artifactId>nlweb-bench-definition-api-data</artifactId>
-			<version>5.2.6</version>
+			<version>${nlweb-bench-definition-api.version}</version>
 			<exclusions>
 				<exclusion>
 					<artifactId>neoload-project</artifactId>
@@ -58,77 +67,77 @@
 		<dependency>
 			<groupId>com.neotys.nlweb.apis-gateway</groupId>
 			<artifactId>nlweb-apis-gateway-api-definition</artifactId>
-			<version>1.3.6</version>
+			<version>${nlweb-apis-gateway-api.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.neotys.nlweb.apis-gateway</groupId>
 			<artifactId>nlweb-apis-gateway-api-rest-client</artifactId>
-			<version>1.3.6</version>
+			<version>${nlweb-apis-gateway-api.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.neotys.nlweb.bench-definition</groupId>
 			<artifactId>nlweb-bench-definition-api-definition</artifactId>
-			<version>5.2.6</version>
+			<version>${nlweb-bench-definition-api.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.neotys.nlweb.bench-definition</groupId>
 			<artifactId>nlweb-bench-definition-api-rest-client</artifactId>
-			<version>5.2.6</version>
+			<version>${nlweb-bench-definition-api.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.neotys.nlweb.bench-result-stm</groupId>
 			<artifactId>nlweb-bench-result-stm-api-rest-client</artifactId>
-			<version>4.2.0</version>
+			<version>${nlweb-bench-result-stm-api.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.neotys.nlweb.bench-event</groupId>
 			<artifactId>nlweb-bench-event-api-rest-client</artifactId>
-			<version>5.1.1</version>
+			<version>${nlweb-bench-event-api.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.neotys.web</groupId>
 			<artifactId>neotys-web-foundation-data-client</artifactId>
-			<version>3.5.8</version>
+			<version>${neotys-web-foundation.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.neotys.nlweb.bench-result-raw</groupId>
 			<artifactId>nlweb-bench-result-raw-api-rest-client</artifactId>
-			<version>2.0.1</version>
+			<version>${nlweb-bench-result-raw-api.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.neotys.web</groupId>
 			<artifactId>neotys-web-foundation-data</artifactId>
-			<version>3.5.8</version>
+			<version>${neotys-web-foundation.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.neotys.web</groupId>
 			<artifactId>neotys-web-foundation-api-errors</artifactId>
-			<version>3.5.8</version>
+			<version>${neotys-web-foundation.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.neotys.web</groupId>
 			<artifactId>neotys-web-foundation-api</artifactId>
-			<version>3.5.8</version>
+			<version>${neotys-web-foundation.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.neotys.web</groupId>
 			<artifactId>neotys-web-foundation-vertx-proxy</artifactId>
-			<version>3.5.8</version>
+			<version>${neotys-web-foundation.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.neotys.nlweb.bench-result-im</groupId>
 			<artifactId>nlweb-bench-result-im-api-rest-client</artifactId>
-			<version>4.0.2</version>
+			<version>${nlweb-bench-result-im-api.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>io.reactivex</groupId>
+			<groupId>io.reactivex.rxjava3</groupId>
 			<artifactId>rxjava</artifactId>
 			<version>${io.reactivex.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>io.vertx</groupId>
 			<artifactId>vertx-core</artifactId>
-			<version>3.9.16</version>
+			<version>4.5.13</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.commons</groupId>
@@ -173,6 +182,11 @@
 			<groupId>org.apache.maven</groupId>
 			<artifactId>maven-model</artifactId>
 			<version>${org.apache.maven.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.immutables</groupId>
+			<artifactId>value</artifactId>
+			<version>${org.immutables.version}</version>
 		</dependency>
 	</dependencies>
 

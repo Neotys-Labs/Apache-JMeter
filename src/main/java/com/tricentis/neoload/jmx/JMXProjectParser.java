@@ -21,6 +21,9 @@ public class JMXProjectParser {
     private static final String REGEXP_EXTRACT_THREAD_GROUPS = "<ThreadGroup([^>]+) testname=\"([^>\"]+)\"";
     private static final Pattern PATTERN_EXTRACT_THREAD_GROUPS = Pattern.compile(REGEXP_EXTRACT_THREAD_GROUPS);
 
+    private static final String REGEXP_EXTRACT_TEST_PLAN_NAME = "<TestPlan([^>]+) testname=\"([^>\"]+)\"";
+    private static final Pattern PATTERN_EXTRACT_TEST_PLAN_NAME = Pattern.compile(REGEXP_EXTRACT_TEST_PLAN_NAME);
+
     private JMXProjectParser() {
     }
 
@@ -36,6 +39,15 @@ public class JMXProjectParser {
             threadGroups.add(matcher.group(2));
         }
         return threadGroups;
+    }
+
+    public static String extractTestPlan(final Path jmxPath) throws IOException {
+        final String jmxContent = read(jmxPath);
+        final Matcher matcher = PATTERN_EXTRACT_TEST_PLAN_NAME.matcher(jmxContent);
+        if (matcher.find()) {
+            return matcher.group(2);
+        }
+        return "JMeter Test Plan";
     }
 
 

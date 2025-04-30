@@ -1,6 +1,5 @@
 package com.tricentis.neoload;
 
-import com.google.common.base.Strings;
 import com.neotys.nlweb.bench.event.model.*;
 import com.neotys.web.data.ValueNumber;
 import org.apache.jmeter.control.TransactionController;
@@ -14,7 +13,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.neotys.nlweb.bench.event.model.AssertionResult.createAssertionResult;
-import static com.neotys.nlweb.bench.event.model.ErrorDetailAttribute.*;
 import static com.tricentis.neoload.ThreadGroupNameCache.getThreadGroupName;
 
 /**
@@ -101,27 +99,20 @@ class EventsCollector {
      * - ELEMENT => verify if !TransactionController.isFromTransactionController(result) and set result.getSampleLabel()
      * - Assertion results => View proposed implementation below.
      */
-    private EventDetails getErrorDetails(final SampleResult result) {
+    private ErrorDetails getErrorDetails(final SampleResult result) {
         final String userId = getThreadGroupName(result); // Example: Thread Group A 1-25 => Thread group name + ' ' + thread group instance + "-" + thread (vu) number
         final int instanceId = 1; // We have no a better value => It's a number
 
-        final ErrorDetailsBuilder detailsBuilder = ErrorDetailsBuilder.builder();
-        detailsBuilder
-                .addAttribute(USER_PATH_ID, userId)
-                .addAttribute(USER_PATH_INSTANCE, ValueNumber.of(instanceId))
-                .addAttribute(REQUEST_DURATION, ValueNumber.of(result.getTime()));
-
-        addStringValueIfNotNull(detailsBuilder, ErrorDetailAttribute.REQUEST_STATUS_LINE, getRequestStatusLine(result));
-        addStringValueIfNotNull(detailsBuilder, ErrorDetailAttribute.REQUEST_HEADERS, result.getRequestHeaders());
-        addStringValueIfNotNull(detailsBuilder, ErrorDetailAttribute.RESPONSE_HEADERS, result.getResponseHeaders());
-
-        if (result.getParent() != null) {
-            detailsBuilder.addAttribute(TRANSACTION, result.getParent().getSampleLabel());
-        }
-        detailsBuilder.addAttribute(REQUEST, result.getSampleLabel());
-        detailsBuilder.assertionResults(errorEntryToAssertionResults(result));
-
-        return detailsBuilder.build();
+        return ImmutableErrorDetails.builder()
+            .userPathId(userId)
+            .userPathInstance(ValueNumber.of(instanceId))
+            .requestDuration(ValueNumber.of(result.getTime()))
+            .requestStatusLine(Optional.ofNullable(getRequestStatusLine(result)))
+            .requestHeaders(Optional.ofNullable(result.getRequestHeaders()))
+            .responseHeaders(Optional.ofNullable(result.getResponseHeaders()))
+            .transaction(Optional.ofNullable(result.getParent().getSampleLabel()))
+            .request(result.getSampleLabel())
+            .assertionResults(errorEntryToAssertionResults(result)).build();
     }
 
 
@@ -142,13 +133,5 @@ class EventsCollector {
         }
         return assertionResults;
     }
-
-
-    private void addStringValueIfNotNull(final ErrorDetailsBuilder detailsBuilder, final ErrorDetailAttribute attribute, final String value) {
-        if (!Strings.isNullOrEmpty(value)) {
-            detailsBuilder.addAttribute(attribute, value);
-        }
-    }
-
 
 }

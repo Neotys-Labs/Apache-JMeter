@@ -1,13 +1,17 @@
 package com.tricentis.neoload;
 
+import static java.util.Optional.empty;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
+
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.neotys.nlweb.apis.gateway.benchdefinition.api.definition.request.DefineNewElementsRequest;
 import com.neotys.nlweb.apis.gateway.benchdefinition.api.definition.request.ImmutableDefineNewElementsRequest;
 import com.neotys.nlweb.bench.definition.common.BenchStatus;
 import com.neotys.nlweb.bench.definition.common.FamilyName;
+import com.neotys.nlweb.bench.definition.common.TerminationReason;
 import com.neotys.nlweb.bench.definition.common.model.BenchStatistics;
-import com.neotys.nlweb.bench.definition.common.model.ProductVersion;
 import com.neotys.nlweb.bench.definition.storage.model.BenchDefinition;
 import com.neotys.nlweb.bench.definition.storage.model.BenchDefinitionBuilder;
 import com.neotys.nlweb.bench.definition.storage.model.Project;
@@ -24,22 +28,12 @@ import com.neotys.nlweb.bench.result.stm.api.definition.request.StorePointsReque
 import com.neotys.nlweb.bench.stm.agg.data.point.STMAggPoint;
 import com.neotys.nlweb.benchdefinition.api.definition.result.AddBenchStatisticsResult;
 import com.neotys.timeseries.data.Point;
+import com.neotys.web.data.LoadInjectionProvider;
+import com.neotys.web.data.ProductVersion;
 import com.neotys.web.data.ValueNumber;
 import com.tricentis.neoload.jmx.JMXProjectParser;
-import org.apache.commons.lang3.concurrent.BasicThreadFactory;
-import org.apache.commons.lang3.tuple.ImmutableTriple;
-import org.apache.commons.lang3.tuple.Triple;
-import org.apache.jmeter.samplers.SampleResult;
-import org.apache.jmeter.services.FileServer;
-import org.apache.jmeter.util.JMeterUtils;
-import org.apache.jmeter.visualizers.backend.BackendListenerContext;
-import org.apache.maven.model.Model;
-import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import rx.Completable;
-import rx.Single;
-
+import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Single;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -52,10 +46,17 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-
-import static java.util.Optional.empty;
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
+import org.apache.commons.lang3.concurrent.BasicThreadFactory;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
+import org.apache.commons.lang3.tuple.Triple;
+import org.apache.jmeter.samplers.SampleResult;
+import org.apache.jmeter.services.FileServer;
+import org.apache.jmeter.util.JMeterUtils;
+import org.apache.jmeter.visualizers.backend.BackendListenerContext;
+import org.apache.maven.model.Model;
+import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author lcharlois
@@ -78,6 +79,7 @@ public class NLWebRuntime implements Closeable {
 	private final Element monitorsRootElement;
 	private final String scriptName;
 	private final long startDate;
+	private final String testPlanName;
 
 	// Aggregators / Collectors
 	private final OverallAggregator aggregator = new OverallAggregator();
@@ -106,6 +108,8 @@ public class NLWebRuntime implements Closeable {
 		logInfo("ScriptName: " + scriptName);
 		final Path jmx = Paths.get(fileServer.getBaseDir(), scriptName);
 		logInfo(String.format("Parsing JMX project %s", jmx));
+		testPlanName = JMXProjectParser.extractTestPlan(jmx);
+		logInfo("TestPlanName: " + testPlanName);
 		final Set<String> threadGroups = JMXProjectParser.extractThreadGroups(jmx);
 		if (threadGroups.isEmpty()) {
 			// If no thread group is detected, then create a single node with the JMX project name
@@ -170,7 +174,7 @@ public class NLWebRuntime implements Closeable {
 	}
 
 	private void updateEventsBlocking() {
-		updateEvents().await();
+		updateEvents().blockingAwait();
 	}
 
 	private Completable updateEvents() {
@@ -182,7 +186,7 @@ public class NLWebRuntime implements Closeable {
 	}
 
 	private void updateStmAndRawBlocking() {
-		updateStmAndRaw().await();
+		updateStmAndRaw().blockingAwait();
 	}
 
 	private Completable updateStmAndRaw() {
@@ -217,12 +221,12 @@ public class NLWebRuntime implements Closeable {
 		if (!newElements.isEmpty()) {
 			final DefineNewElementsRequest defineNewElementsRequest = buildNewElementsRequest(nlWebContext.getBenchId(), newElements);
 			final StoreRawMappingRequest storeRawMappingRequest = buildStoreRawMappingRequest(nlWebContext.getBenchId(), newElements);
-			completableStoreMappingAndRawData = Completable.merge(
+			completableStoreMappingAndRawData = Completable.mergeArray(
 					nlWebAPIClient.defineNewElements(defineNewElementsRequest),
 					nlWebAPIClient.storeRawMapping(storeRawMappingRequest)
-			).andThen(Completable.merge(sendStmPoints, storeRawPointsCompletable));
+			).andThen(Completable.mergeArray(sendStmPoints, storeRawPointsCompletable));
 		} else {
-			completableStoreMappingAndRawData = Completable.merge(sendStmPoints, storeRawPointsCompletable);
+			completableStoreMappingAndRawData = Completable.mergeArray(sendStmPoints, storeRawPointsCompletable);
 		}
 		return logCompletable(completableStoreMappingAndRawData, "storeMappingAndRawData done...");
 	}
@@ -260,7 +264,7 @@ public class NLWebRuntime implements Closeable {
 	}
 
 	private Completable logCompletable(Completable completable, String msgOnSuccess) {
-		return completable.doOnCompleted(() -> logDebug(msgOnSuccess)).doOnError(e -> logError("Error on method logCompletable", e));
+		return completable.doOnComplete(() -> logDebug(msgOnSuccess)).doOnError(e -> logError("Error on method logCompletable", e));
 	}
 
 	private RawPoint toRawPoint(final SampleResult sampleResult) {
@@ -280,7 +284,7 @@ public class NLWebRuntime implements Closeable {
 	}
 
 	private void updateStatisticsBlocking() {
-		updateStatistics().toCompletable().await();
+		updateStatistics().ignoreElement().blockingAwait();
 	}
 
 
@@ -320,6 +324,12 @@ public class NLWebRuntime implements Closeable {
 		}
 	}
 
+	private static String removeExtension(String scriptName) {
+		if (scriptName.contains(".")) {
+				return scriptName.substring(0, scriptName.lastIndexOf('.'));
+		}
+		return scriptName;
+	}
 
 	private static String getJMeterVersion() {
 		return "jmeter-" + JMeterUtils.getJMeterVersion();
@@ -327,6 +337,7 @@ public class NLWebRuntime implements Closeable {
 
 	private BenchDefinition createBenchDefinition() {
 		final ProductVersion pluginVersion = getVersion();
+		final String projectName = removeExtension(scriptName);
 		final BenchDefinitionBuilder benchDefinitionBuilder = BenchDefinitionBuilder.builder()
 				.vuhOrDaily(false)
 				.aggregationSTMAggPointsInterval(STM_SAMPLING_INTERVAL_IN_MILLISECONDS)
@@ -340,14 +351,15 @@ public class NLWebRuntime implements Closeable {
 				.lgCount(1)
 				.name(scriptName)
 				.statistics(BenchStatistics.of(ImmutableMap.of()))
-				.project(Project.of(scriptName, scriptName))
-				.scenario(Scenario.of(scriptName, scriptName, empty()))
+				.project(Project.of(projectName, projectName))
+				.scenario(Scenario.of(testPlanName, testPlanName, empty()))
 				.loadPolicies(ImmutableListMultimap.of())
 				.dataSources(BenchElementMapper.toDataSources(userPathElements, monitorsRootElement))
 				.nlGuiVersion(pluginVersion)
 				.percentilesOnRawData(Optional.of(true))
 				.controllerAgentUuid(nlWebContext.getControllerAgentUuid())
-				.startedByNlw(nlWebContext.startedByNlw());
+				.startedByNlw(nlWebContext.startedByNlw())
+				.loadInjectionProvider(LoadInjectionProvider.JMETER);
 		if (nlWebContext.getWorkspaceId() != null && !"".equals(nlWebContext.getWorkspaceId())) {
 			benchDefinitionBuilder.groupId(nlWebContext.getWorkspaceId());
 		}
