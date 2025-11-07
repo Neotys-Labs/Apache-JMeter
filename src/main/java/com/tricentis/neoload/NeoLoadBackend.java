@@ -1,12 +1,6 @@
 package com.tricentis.neoload;
 
-import org.apache.jmeter.config.Arguments;
-import org.apache.jmeter.control.TransactionController;
-import org.apache.jmeter.samplers.SampleResult;
-import org.apache.jmeter.visualizers.backend.AbstractBackendListenerClient;
-import org.apache.jmeter.visualizers.backend.BackendListenerContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static com.google.common.base.Predicates.not;
 
 import java.util.Arrays;
 import java.util.List;
@@ -15,8 +9,13 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import static com.google.common.base.Predicates.not;
+import org.apache.jmeter.config.Arguments;
+import org.apache.jmeter.control.TransactionController;
+import org.apache.jmeter.samplers.SampleResult;
+import org.apache.jmeter.visualizers.backend.AbstractBackendListenerClient;
+import org.apache.jmeter.visualizers.backend.BackendListenerContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author lcharlois
@@ -51,14 +50,19 @@ public class NeoLoadBackend extends AbstractBackendListenerClient {
 
 	private void logCounters() {
 		if (LOGGER.isDebugEnabled())
-			LOGGER.debug(String.format("Received requests from JMeter => %d Ok %d Ko %d", totalCount, totalOk, totalKo));
+			LOGGER.debug(String.format("Received requests from JMeter : Total %d | %d OK | %d KO", totalCount, totalOk, totalKo));
 	}
 
 	@Override
 	public void handleSampleResults(final List<SampleResult> list, final BackendListenerContext backendListenerContext) {
-		final List<SampleResult> effectiveList = expandList(list);
-		calcCounts(effectiveList);
-		nlwebRuntime.addSamples(effectiveList);
+		try {
+			final List<SampleResult> effectiveList = expandList(list);
+			calcCounts(effectiveList);
+			nlwebRuntime.addSamples(effectiveList);
+		} catch (final Exception e) {
+			LOGGER.error("Error during handleSampleResults", e);
+			throw e;
+		}
 	}
 
 
@@ -84,12 +88,18 @@ public class NeoLoadBackend extends AbstractBackendListenerClient {
 
 	@Override
 	public void teardownTest(final BackendListenerContext context) throws Exception {
-		executor.awaitTermination(5, TimeUnit.SECONDS);
-		logCounters();
-		nlwebRuntime.close();
-		executor.shutdown();
-		nlwebRuntime = null;
-		super.teardownTest(context);
+		try {
+			executor.awaitTermination(5, TimeUnit.SECONDS);
+			logCounters();
+			nlwebRuntime.close();
+			executor.shutdown();
+			nlwebRuntime = null;
+		} catch (final Exception e) {
+			LOGGER.error("Error during teardown", e);
+			throw e;
+		} finally {
+			super.teardownTest(context);
+		}
 	}
 
 	@Override
