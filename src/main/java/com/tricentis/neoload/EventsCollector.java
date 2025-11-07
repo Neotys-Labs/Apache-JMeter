@@ -103,14 +103,14 @@ class EventsCollector {
         final String userId = getThreadGroupName(result); // Example: Thread Group A 1-25 => Thread group name + ' ' + thread group instance + "-" + thread (vu) number
         final int instanceId = 1; // We have no a better value => It's a number
 
-        return ImmutableErrorDetails.builder()
+				return ImmutableErrorDetails.builder()
             .userPathId(userId)
             .userPathInstance(ValueNumber.of(instanceId))
             .requestDuration(ValueNumber.of(result.getTime()))
             .requestStatusLine(Optional.ofNullable(getRequestStatusLine(result)))
             .requestHeaders(Optional.ofNullable(result.getRequestHeaders()))
             .responseHeaders(Optional.ofNullable(result.getResponseHeaders()))
-            .transaction(Optional.ofNullable(result.getParent().getSampleLabel()))
+            .transaction(Optional.ofNullable(result.getParent()).map(SampleResult::getSampleLabel))
             .request(result.getSampleLabel())
             .assertionResults(errorEntryToAssertionResults(result)).build();
     }
