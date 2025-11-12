@@ -194,17 +194,10 @@
 		<pluginManagement><!-- lock down plugins versions to avoid using Maven defaults (may be moved to parent pom) -->
 			<plugins>
 				<plugin>
-					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-compiler-plugin</artifactId>
-					<version>${maven-compiler-plugin.version}</version>
 					<configuration>
-						<source>11</source>
-						<target>11</target>
-						<verbose>false</verbose>
-						<compilerArgs>
-							<arg>-XDignore.symbol.file</arg>
-						</compilerArgs>
-						<fork>true</fork>
+						<source>${maven.compiler.source}</source>
+						<target>${maven.compiler.target}</target>
 					</configuration>
 				</plugin>
 				<!-- clean lifecycle, see https://maven.apache.org/ref/current/maven-core/lifecycles.html#clean_Lifecycle -->
