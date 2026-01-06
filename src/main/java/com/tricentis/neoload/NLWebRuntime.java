@@ -10,7 +10,6 @@ import com.neotys.nlweb.apis.gateway.benchdefinition.api.definition.request.Defi
 import com.neotys.nlweb.apis.gateway.benchdefinition.api.definition.request.ImmutableDefineNewElementsRequest;
 import com.neotys.nlweb.bench.definition.common.BenchStatus;
 import com.neotys.nlweb.bench.definition.common.FamilyName;
-import com.neotys.nlweb.bench.definition.common.TerminationReason;
 import com.neotys.nlweb.bench.definition.common.model.BenchStatistics;
 import com.neotys.nlweb.bench.definition.storage.model.BenchDefinition;
 import com.neotys.nlweb.bench.definition.storage.model.BenchDefinitionBuilder;
@@ -108,9 +107,10 @@ public class NLWebRuntime implements Closeable {
 		logInfo("ScriptName: " + scriptName);
 		final Path jmx = Paths.get(fileServer.getBaseDir(), scriptName);
 		logInfo(String.format("Parsing JMX project %s", jmx));
-		testPlanName = JMXProjectParser.extractTestPlan(jmx);
+		JMXProjectParser jmxProjectParser = new JMXProjectParser(jmx);
+		testPlanName = jmxProjectParser.extractTestPlan();
 		logInfo("TestPlanName: " + testPlanName);
-		final Set<String> threadGroups = JMXProjectParser.extractThreadGroups(jmx);
+		final Set<String> threadGroups = jmxProjectParser.extractThreadGroups();
 		if (threadGroups.isEmpty()) {
 			// If no thread group is detected, then create a single node with the JMX project name
 			threadGroups.add(scriptName);
@@ -178,7 +178,7 @@ public class NLWebRuntime implements Closeable {
 	}
 
 	private Completable updateEvents() {
-		return logCompletable(nlWebAPIClient.storeBenchEvents(nlWebContext.getBenchId(), eventsCollector.collect()), "updateEvents done...");
+		return logCompletable(nlWebAPIClient.storeBenchEvents(nlWebContext.getBenchId(), eventsCollector.collect()), "updateEvents done...", "updateEvents");
 	}
 
 	private void updateStmAndRawAsync() {
@@ -228,7 +228,7 @@ public class NLWebRuntime implements Closeable {
 		} else {
 			completableStoreMappingAndRawData = Completable.mergeArray(sendStmPoints, storeRawPointsCompletable);
 		}
-		return logCompletable(completableStoreMappingAndRawData, "storeMappingAndRawData done...");
+		return logCompletable(completableStoreMappingAndRawData, "storeMappingAndRawData done...", "updateStmAndRaw");
 	}
 
 	private ImmutableDefineNewElementsRequest buildNewElementsRequest(final String benchId, final List<BenchElement> newElements) {
@@ -263,8 +263,8 @@ public class NLWebRuntime implements Closeable {
 				.build();
 	}
 
-	private Completable logCompletable(Completable completable, String msgOnSuccess) {
-		return completable.doOnComplete(() -> logDebug(msgOnSuccess)).doOnError(e -> logError("Error on method logCompletable", e));
+	private Completable logCompletable(Completable completable, String msgOnSuccess, String methodName) {
+		return completable.doOnComplete(() -> logDebug(msgOnSuccess)).doOnError(e -> logError("Error on method " + methodName, e));
 	}
 
 	private RawPoint toRawPoint(final SampleResult sampleResult) {
@@ -326,7 +326,7 @@ public class NLWebRuntime implements Closeable {
 
 	private static String removeExtension(String scriptName) {
 		if (scriptName.contains(".")) {
-				return scriptName.substring(0, scriptName.lastIndexOf('.'));
+			return scriptName.substring(0, scriptName.lastIndexOf('.'));
 		}
 		return scriptName;
 	}

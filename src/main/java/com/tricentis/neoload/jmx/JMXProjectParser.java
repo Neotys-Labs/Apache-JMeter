@@ -1,88 +1,79 @@
 package com.tricentis.neoload.jmx;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import org.apache.jmeter.save.SaveService;
+import org.apache.jmeter.testelement.TestPlan;
+import org.apache.jmeter.threads.AbstractThreadGroup;
+import org.apache.jorphan.collections.HashTree;
+import org.apache.jorphan.collections.HashTreeTraverser;
 
 public class JMXProjectParser {
 
+	private final Path jmxPath;
+	private final JMeterInfoExtractor jMeterInfoExtractor = new JMeterInfoExtractor();
 
-    private static final String TEST_PLAN_END_TAG = "</hashTree>  </hashTree></jmeterTestPlan>";
-    private static final String BACKEND_LISTENER_NODE_CONTENT = "<BackendListener guiclass=\"BackendListenerGui\" testclass=\"BackendListener\" testname=\"NeoLoad Backend Listener\" enabled=\"true\"><elementProp name=\"arguments\" elementType=\"Arguments\" guiclass=\"ArgumentsPanel\" testclass=\"Arguments\" enabled=\"true\"><collectionProp name=\"Arguments.arguments\"/></elementProp><stringProp name=\"classname\">com.tricentis.neoload.NeoLoadBackend</stringProp></BackendListener><hashTree/></hashTree></hashTree></jmeterTestPlan>";
-    private static final String BACKEND_LISTENER_STRING_PROP = "<stringProp name=\"classname\">com.tricentis.neoload.NeoLoadBackend</stringProp>";
+	static class JMeterInfoExtractor implements HashTreeTraverser {
+		private String testPlanName;
+		private final Set<String> threadGroupNames = new HashSet<>();
 
-    private static final String REGEXP_EXTRACT_THREAD_GROUPS = "<ThreadGroup([^>]+) testname=\"([^>\"]+)\"";
-    private static final Pattern PATTERN_EXTRACT_THREAD_GROUPS = Pattern.compile(REGEXP_EXTRACT_THREAD_GROUPS);
+		@Override
+		public void addNode(final Object node, final HashTree subTree) {
+			if (node instanceof AbstractThreadGroup) {
+				AbstractThreadGroup threadGroup = (AbstractThreadGroup) node;
+				if (threadGroup.isEnabled()) {
+					threadGroupNames.add(threadGroup.getName());
+				}
+			}
+			if (node instanceof TestPlan) {
+				TestPlan testPlan = (TestPlan) node;
+				if (testPlan.isEnabled()) {
+					this.testPlanName = testPlan.getName();
+				}
+			} else {
+				this.testPlanName = "JMeter Test Plan";
+			}
+		}
 
-    private static final String REGEXP_EXTRACT_TEST_PLAN_NAME = "<TestPlan([^>]+) testname=\"([^>\"]+)\"";
-    private static final Pattern PATTERN_EXTRACT_TEST_PLAN_NAME = Pattern.compile(REGEXP_EXTRACT_TEST_PLAN_NAME);
+		@Override
+		public void subtractNode() {
+		}
 
-    private JMXProjectParser() {
-    }
+		@Override
+		public void processPath() {
+		}
 
-    public static Set<String> extractThreadGroups(final Path jmxPath) throws IOException {
-        final String jmxContent = read(jmxPath);
-        return extractThreadGroups(jmxContent);
-    }
+		public Set<String> getThreadGroupNames() {
+			return threadGroupNames;
+		}
 
-    public static Set<String> extractThreadGroups(final String jmxContent) {
-        final Matcher matcher = PATTERN_EXTRACT_THREAD_GROUPS.matcher(jmxContent);
-        final Set<String> threadGroups = new HashSet<>();
-        while (matcher.find()) {
-            threadGroups.add(matcher.group(2));
-        }
-        return threadGroups;
-    }
+		public String getTestPlanName() {
+			return testPlanName;
+		}
+	}
 
-    public static String extractTestPlan(final Path jmxPath) throws IOException {
-        final String jmxContent = read(jmxPath);
-        final Matcher matcher = PATTERN_EXTRACT_TEST_PLAN_NAME.matcher(jmxContent);
-        if (matcher.find()) {
-            return matcher.group(2);
-        }
-        return "JMeter Test Plan";
-    }
+	public JMXProjectParser(final Path jmxPath) {
+		this.jmxPath = jmxPath;
+		try {
+			loadData();
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
 
+	private void loadData() throws IOException {
+		HashTree tree = SaveService.loadTree(this.jmxPath.toFile());
+		tree.traverse(jMeterInfoExtractor);
+	}
 
-    public static void instrumentWithNLBackendListener(final Path jmxPath) throws IOException, JMXException {
-        final String jmxContent = read(jmxPath);
-        final String newJmxContent = instrumentWithNLBackendListener(jmxContent);
-        Files.write(jmxPath, newJmxContent.getBytes());
-    }
+	public Set<String> extractThreadGroups() {
+		return jMeterInfoExtractor.getThreadGroupNames();
 
-    static String instrumentWithNLBackendListener(String jmxContent) throws JMXException {
-        if (extractThreadGroups(jmxContent).isEmpty()) {
-            throw new JMXException("No thread group found");
-        }
-        if (jmxContent.contains(BACKEND_LISTENER_STRING_PROP)) {
-            throw new JMXException("NeoLoadBackend listener already present");
-        }
-        jmxContent = trimEmptyLines(jmxContent);
-        if (jmxContent.contains(TEST_PLAN_END_TAG)) {
-            return jmxContent.replace(TEST_PLAN_END_TAG, BACKEND_LISTENER_NODE_CONTENT);
-        }
-        return jmxContent;
-    }
+	}
 
-    private static String read(final Path path) throws IOException {
-        try (Stream<String> input = Files.lines(path)) {
-            return input.collect(Collectors.joining(""));
-        }
-    }
-
-    static String trimEmptyLines(final String s) {
-        return s.replace("\n", "").replace("\r", "");
-    }
-
-    public static void main(String[] args) throws IOException, JMXException {
-        instrumentWithNLBackendListener(Paths.get("C:\\GoogleDrive\\Documents\\work\\OSS\\ApacheJMeter\\projects\\tmp.jmx"));
-        extractThreadGroups(Paths.get("C:\\GoogleDrive\\Documents\\work\\OSS\\ApacheJMeter\\projects\\tmp.jmx")).forEach(System.out::println);
-    }
+	public String extractTestPlan() {
+		return jMeterInfoExtractor.getTestPlanName();
+	}
 }
