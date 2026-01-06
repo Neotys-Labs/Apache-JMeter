@@ -33,6 +33,7 @@
 		<nlweb-bench-event-api.version>6.8.0</nlweb-bench-event-api.version>
 		<nlweb-bench-result-im-api.version>5.8.0</nlweb-bench-result-im-api.version>
 		<nlweb-rest-vertx-router-api.version>4.1.0</nlweb-rest-vertx-router-api.version>
+		<assertj.version>3.27.6</assertj.version>
 	</properties>
 
 	<dependencies>
@@ -48,6 +49,14 @@
 			<version>${jmeter.version}</version>
 			<scope>provided</scope>
 		</dependency>
+		<dependency>
+			<groupId>org.apache.jmeter</groupId>
+			<artifactId>ApacheJMeter_http</artifactId>
+			<version>${jmeter.version}</version>
+			<scope>provided</scope>
+		</dependency>
+
+
 		<dependency>
 			<groupId>com.neotys.nlweb.rest-vertx-router</groupId>
 			<artifactId>nlweb-rest-vertx-router-api-client</artifactId>
@@ -187,6 +196,18 @@
 			<groupId>org.immutables</groupId>
 			<artifactId>value</artifactId>
 			<version>${org.immutables.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.assertj</groupId>
+			<artifactId>assertj-core</artifactId>
+			<version>${assertj.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>kg.apc</groupId>
+			<artifactId>jmeter-plugins-casutg</artifactId>
+			<version>3.1.1</version>
+			<scope>test</scope>
 		</dependency>
 	</dependencies>
 
