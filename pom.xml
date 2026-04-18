@@ -21,7 +21,7 @@
 		<jmeter.version>5.6.3</jmeter.version>
 		<slf4j.version>1.7.36</slf4j.version>
 		<io.reactivex.version>3.1.9</io.reactivex.version>
-		<org.apache.maven.version>3.9.5</org.apache.maven.version>
+		<org.apache.maven.version>3.9.14</org.apache.maven.version>
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<maven.compiler.target>1.8</maven.compiler.target>
 		<org.immutables.version>2.10.1</org.immutables.version>
